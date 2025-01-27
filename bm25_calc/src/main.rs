@@ -1,4 +1,6 @@
 mod bm_calc;
+mod dataloader;
+pub(crate) mod error;
 
 use bm25;
 // bm_calc;
