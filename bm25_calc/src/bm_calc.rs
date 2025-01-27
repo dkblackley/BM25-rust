@@ -4,11 +4,23 @@ use bm25::{
     Tokenizer,
 };
 
-pub struct BM25Scorer {}
+pub struct BM25Scorer {
+    alphabet: Vec<String>,
+    scorer: Scorer<usize>,
+}
 
 fn pre_calc_bm(corpus: &[&str]) -> Result<BM25Scorer> {
     let mut scorer = Scorer::<usize>::new();
-    let embedder: Embedder = EmbedderBuilder::with_fit_to_corpus(Language::English, corpus).build();
+
+    let tokenizer = DefaultTokenizer::builder()
+        .language_mode(Language::English)
+        .normalization(true) // Normalize unicode (e.g., 'é' -> 'e', '🍕' -> 'pizza', etc.)
+        .stopwords(true) // Remove common words with little meaning (e.g., 'the', 'and', 'of', etc.)
+        .stemming(true) // Reduce words to their root form (e.g., 'running' -> 'run')
+        .build();
+
+    let embedder: Embedder =
+        EmbedderBuilder::with_tokenizer_and_fit_to_corpus(tokenizer, corpus).build();
 
     for (i, document) in corpus.iter().enumerate() {
         let document_embedding = embedder.embed(document);
