@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::error::Result;
 use bm25::{
     DefaultTokenizer, Embedder, EmbedderBuilder, Embedding, Language, Scorer, TokenEmbedding,
@@ -5,30 +7,48 @@ use bm25::{
 };
 
 pub struct BM25Scorer {
-    alphabet: Vec<String>,
+    alphabet: HashSet<String>,
     scorer: Scorer<usize>,
+    tokenizer: DefaultTokenizer,
 }
 
 fn pre_calc_bm(corpus: &[&str]) -> Result<BM25Scorer> {
     let mut scorer = Scorer::<usize>::new();
+    let mut set = HashSet::new();
 
     let tokenizer = DefaultTokenizer::builder()
         .language_mode(Language::English)
-        .normalization(true) // Normalize unicode (e.g., 'é' -> 'e', '🍕' -> 'pizza', etc.)
-        .stopwords(true) // Remove common words with little meaning (e.g., 'the', 'and', 'of', etc.)
-        .stemming(true) // Reduce words to their root form (e.g., 'running' -> 'run')
+        .normalization(true)
+        .stopwords(true)
+        .stemming(true)
         .build();
 
     let embedder: Embedder =
         EmbedderBuilder::with_tokenizer_and_fit_to_corpus(tokenizer, corpus).build();
 
+    let tokenizer = DefaultTokenizer::builder()
+        .language_mode(Language::English)
+        .normalization(true)
+        .stopwords(true)
+        .stemming(true)
+        .build();
+
     for (i, document) in corpus.iter().enumerate() {
         let document_embedding = embedder.embed(document);
         scorer.upsert(&i, document_embedding);
+
+        let tokens = tokenizer.tokenize(&document);
+        set.extend(tokens);
     }
+
+    Ok(BM25Scorer {
+        alphabet: set,
+        scorer,
+        tokenizer,
+    })
 }
 
-fn map_words_to_scores(alphabet: Vec<&str>, tokenizer: Tokenizer) {}
+fn top_k(k: usize) {}
 
 #[cfg(test)]
 mod tests {
@@ -47,18 +67,18 @@ mod tests {
 
     #[test]
     fn extract_embeddings() {
-        let mut scorer = Scorer::<usize>::new();
+        // Initialize subscriber for tests
+        tracing_subscriber::fmt()
+            .with_test_writer() // This ensures proper test output formatting
+            .with_max_level(tracing::Level::DEBUG)
+            .init();
 
-        let tokenizer = DefaultTokenizer::builder()
-            .language_mode(Language::English)
-            .normalization(true) // Normalize unicode (e.g., 'é' -> 'e', '🍕' -> 'pizza', etc.)
-            .stopwords(true) // Remove common words with little meaning (e.g., 'the', 'and', 'of', etc.)
-            .stemming(true) // Reduce words to their root form (e.g., 'running' -> 'run')
-            .build();
+        let bm_score = pre_calc_bm(&CORPUS).unwrap();
 
-        let test_alphabet = "one two three Evgenios";
-        let tokens = tokenizer.tokenize(test_alphabet);
+        for word in bm_score.alphabet {
+            info!("{word}");
+        }
 
-        info!("{:?}", tokens);
+        panic!();
     }
 }
