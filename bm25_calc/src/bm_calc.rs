@@ -1,10 +1,23 @@
 use std::collections::HashSet;
+use std::hash::Hash;
 
 use crate::error::Result;
 use bm25::{
-    DefaultTokenizer, Embedder, EmbedderBuilder, Embedding, Language, Scorer, TokenEmbedding,
-    Tokenizer,
+    DefaultTokenizer, Embedder, EmbedderBuilder, Embedding, Language, Scorer, SearchEngineBuilder,
+    TokenEmbedding, Tokenizer,
 };
+
+#[macro_export]
+macro_rules! default_tokenizer {
+    () => {
+        DefaultTokenizer::builder()
+            .language_mode(Language::English)
+            .normalization(true)
+            .stopwords(true)
+            .stemming(true)
+            .build()
+    };
+}
 
 pub struct BM25Scorer {
     alphabet: HashSet<String>,
@@ -48,7 +61,62 @@ fn pre_calc_bm(corpus: &[&str]) -> Result<BM25Scorer> {
     })
 }
 
-fn top_k(k: usize) {}
+fn build_search_engine() {
+    
+}
+
+fn perform_query(k: usize, query: &str, corpus: &[&str], bm25_scorer: &BM25Scorer) {
+    let search_engine = SearchEngineBuilder::<usize>::with_tokenizer_and_corpus(tokenizer, corpus)
+
+    let limit = k;
+    let search_results = search_engine.search(query, limit);
+
+    assert_eq!(
+        search_results,
+        vec![
+            SearchResult {
+                document: Document {
+                    id: 2,
+                    contents: String::from("The hedgehog impaled the orange orange."),
+                },
+                score: 0.4904281,
+            },
+            SearchResult {
+                document: Document {
+                    id: 0,
+                    contents: String::from("The rabbit munched the orange carrot."),
+                },
+                score: 0.35667497,
+            },
+        ]
+    );
+}
+
+/// Takes in an iterable and then returns a hashset mapping the items to their top-k score
+fn top_k<T, I>(k: usize, iter: I) -> HashSet<T>
+where
+    T: Hash + Eq,
+    I: IntoIterator<Item = T>,
+{
+    let mut result = HashSet::new();
+    // Implementation here
+    result
+}
+
+/// Takes in an iterable and then returns a vector of items in bins, uses d-choice hashing
+fn top_k_bins<T, I>(k: usize, bins: usize, choices: usize, iter: I) -> Vec<Vec<T>>
+where
+    T: Hash + Eq,
+    I: IntoIterator<Item = T>,
+{
+    let mut result = vec![bins];
+
+    // use these as seeds
+    let numbers: Vec<i32> = (0..129).collect();
+
+    // Implementation here
+    result
+}
 
 #[cfg(test)]
 mod tests {
