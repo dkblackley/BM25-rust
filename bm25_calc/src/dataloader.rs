@@ -13,7 +13,7 @@ pub fn return_data_as_string(filename: &str) -> Result<Vec<String>> {
         .map(|line| -> Result<String> {
             let line = line?;
             let json_val: Value = serde_json::from_str(&line)?;
-            Ok(json_val["text"].to_string())
+            Ok(json_val["abstract"].to_string())
         })
         .collect::<Result<_>>()?;
 
@@ -29,6 +29,12 @@ mod tests {
     #[test]
     fn test_name() {
         let corpus = return_data_as_string("../scifact/corpus.jsonl").unwrap();
+        info!("{}", corpus[0]);
+    }
+
+    #[test]
+    fn test_arxiv() {
+        let corpus = return_data_as_string("../arxiv-metadata-oai-snapshot.json").unwrap();
         info!("{}", corpus[0]);
     }
 }

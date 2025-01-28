@@ -12,13 +12,14 @@ fn main() {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    let d = 10;
-    let k = 5;
-    let max_bins = 50;
+    let d = 2;
+    let k = 10;
+    let max_bins = 1500;
 
     info!("Starting BM25 calculation");
     // TODO replace with cmd args
-    let corpus = dataloader::return_data_as_string("../scifact/corpus.jsonl").unwrap();
+    //let corpus = dataloader::return_data_as_string("../scifact/corpus.jsonl").unwrap();
+    let corpus = dataloader::return_data_as_string("../arxiv-metadata-oai-snapshot.json").unwrap();
 
     let alphabet = bm_calc::get_alphabet(&corpus).unwrap();
 
@@ -40,7 +41,7 @@ fn main() {
     for i in 0..max_bins {
         let length = top_k_bins[i].len();
         total_items = total_items + length;
-        debug!("Length is {}", length);
+        //debug!("Length is {}", length);
         if length > largest {
             largest = length;
         }
@@ -50,7 +51,7 @@ fn main() {
 
     for results in top_k.values() {
         total_length += results.len();
-        debug!("indices in the bins: {:?}", results);
+        //debug!("indices in the bins: {:?}", results);
     }
 
     let mut total_occurrences = 0;
