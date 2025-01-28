@@ -23,7 +23,7 @@ fn pre_calc_bm(corpus: &[&str]) -> Result<BM25Scorer> {
         .stemming(true)
         .build();
 
-    let embedder: Embedder =
+    let embedder: Embedder<DefaultTokenizer> =
         EmbedderBuilder::with_tokenizer_and_fit_to_corpus(tokenizer, corpus).build();
 
     let tokenizer = DefaultTokenizer::builder()
