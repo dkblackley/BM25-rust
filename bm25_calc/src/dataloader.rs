@@ -4,9 +4,8 @@ use std::{
     fs::{self, File},
     io::{BufRead as _, BufReader},
 };
-use tracing;
 
-fn return_data_as_string(filename: &str) -> Result<Vec<String>> {
+pub fn return_data_as_string(filename: &str) -> Result<Vec<String>> {
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
     let result_vec: Vec<String> = reader
