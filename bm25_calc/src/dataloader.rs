@@ -1,7 +1,7 @@
 use crate::error::Result;
 use serde_json::Value;
 use std::{
-    fs::{self, File},
+    fs::File,
     io::{BufRead as _, BufReader},
 };
 

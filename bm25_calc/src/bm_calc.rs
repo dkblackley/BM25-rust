@@ -1,14 +1,13 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::ptr::hash;
+use std::time::Duration;
 
 use crate::error::Result;
 use bm25::{
-    DefaultTokenizer, Embedder, EmbedderBuilder, Embedding, Language, Scorer, SearchEngine,
-    SearchEngineBuilder, TokenEmbedding, Tokenizer,
+    DefaultTokenizer, Embedder, EmbedderBuilder, Language, Scorer, SearchEngine,
+    SearchEngineBuilder, Tokenizer,
 };
-use indicatif::ProgressBar;
-use rand::Rng;
+use indicatif::{ProgressBar, ProgressStyle};
 use tracing::{debug, info, trace};
 
 #[macro_export]
@@ -33,10 +32,12 @@ pub fn get_alphabet(corpus: &Vec<String>) -> Result<HashSet<String>> {
     //let mut scorer = Scorer::<usize>::new();
     let mut set = HashSet::new();
 
+    debug!("Bar init");
+    let bar = ProgressBar::new(corpus.len() as u64);
+
+    bar.enable_steady_tick(Duration::from_millis(100));
     // Blame the borrow checker for this
     let slice: &[&str] = &corpus.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
-
-    let bar = ProgressBar::new(corpus.len() as u64);
 
     let tokenizer = DefaultTokenizer::builder()
         .language_mode(Language::English)
@@ -55,6 +56,7 @@ pub fn get_alphabet(corpus: &Vec<String>) -> Result<HashSet<String>> {
         .stemming(true)
         .build();
 
+    info!("scanning alphabet");
     for (i, document) in corpus.iter().enumerate() {
         // let document_embedding = embedder.embed(document);
         // scorer.upsert(&i, document_embedding);
@@ -123,7 +125,7 @@ pub fn top_k_bins(
 
     for word in alphabet {
         let search_results = search_engine.search(word, k);
-        let mut document_ids: HashSet<u32> = search_results
+        let document_ids: HashSet<u32> = search_results
             .iter()
             .map(|result| result.document.id)
             .collect();
@@ -147,7 +149,7 @@ pub fn top_k_bins(
             let overlap = results[index].intersection(&document_ids).count();
 
             if overlap > max_overlap || max_overlap == 0 {
-                if (overlap > 0) {
+                if overlap > 0 {
                     //debug!("Best bin updated {}", overlap);
                 }
                 max_overlap = overlap;

@@ -2,15 +2,13 @@ pub(crate) mod bm_calc;
 pub(crate) mod dataloader;
 pub(crate) mod error;
 
-use bm25;
-use std::{collections::HashSet, ffi::FromBytesUntilNulError, i16};
-use tracing::{debug, info};
+use tracing::info;
 
 fn main() {
-    // tracing_subscriber::fmt()
-    //     .with_test_writer()
-    //     .with_max_level(tracing::Level::DEBUG)
-    //     .init();
+    tracing_subscriber::fmt()
+        .with_test_writer()
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
 
     let d = 4;
     let k = 10;
@@ -56,7 +54,7 @@ fn main() {
         //debug!("indices in the bins: {:?}", results);
     }
 
-    let mut duplicates = 0;
+    let duplicates = 0;
 
     // Is this correct?
     // for i in 0..5200 {
