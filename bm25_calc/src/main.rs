@@ -2,7 +2,7 @@ pub(crate) mod bm_calc;
 pub(crate) mod dataloader;
 pub(crate) mod error;
 
-use tracing::info;
+use tracing::{debug, info};
 
 fn main() {
     tracing_subscriber::fmt()
@@ -22,10 +22,17 @@ fn main() {
     let alphabet = bm_calc::get_alphabet(&corpus).unwrap();
 
     info!(
-        "The total number of files is {} (roughly 20 MB) and the alphabet size is {}",
+        "The total number of files is {} and the alphabet size is {}",
         corpus.len(),
         alphabet.len()
     );
+    let items: Vec<_> = alphabet.iter().collect();
+
+    debug!("len: {}", items.len());
+
+    for i in 0..1000 {
+        debug!("{}", &items[i]);
+    }
 
     let search = bm_calc::build_search_engine(corpus).unwrap();
 

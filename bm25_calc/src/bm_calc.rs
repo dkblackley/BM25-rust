@@ -32,11 +32,9 @@ pub fn get_alphabet(corpus: &Vec<String>) -> Result<HashSet<String>> {
     //let mut scorer = Scorer::<usize>::new();
     let mut set = HashSet::new();
 
-    debug!("Bar init");
-    let bar = ProgressBar::new(corpus.len() as u64);
+    info!("Makking alphabet");
 
-    bar.enable_steady_tick(Duration::from_millis(100));
-    // Blame the borrow checker for this
+    // Blame the borrow checker for this. It also takes ages.
     let slice: &[&str] = &corpus.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
 
     let tokenizer = DefaultTokenizer::builder()
@@ -57,6 +55,8 @@ pub fn get_alphabet(corpus: &Vec<String>) -> Result<HashSet<String>> {
         .build();
 
     info!("scanning alphabet");
+    debug!("Bar init");
+    let bar = ProgressBar::new(corpus.len() as u64);
     for (i, document) in corpus.iter().enumerate() {
         // let document_embedding = embedder.embed(document);
         // scorer.upsert(&i, document_embedding);
