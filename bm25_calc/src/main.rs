@@ -7,12 +7,12 @@ use std::{collections::HashSet, ffi::FromBytesUntilNulError, i16};
 use tracing::{debug, info};
 
 fn main() {
-    tracing_subscriber::fmt()
-        .with_test_writer()
-        .with_max_level(tracing::Level::DEBUG)
-        .init();
+    // tracing_subscriber::fmt()
+    //     .with_test_writer()
+    //     .with_max_level(tracing::Level::DEBUG)
+    //     .init();
 
-    let d = 2;
+    let d = 4;
     let k = 10;
     let max_bins = 1500;
 
@@ -32,10 +32,12 @@ fn main() {
     let search = bm_calc::build_search_engine(corpus).unwrap();
 
     let top_k = bm_calc::top_k(k, &search, &alphabet);
+    info!("Top K Done");
     let top_k_bins = bm_calc::top_k_bins(k, &search, &alphabet, d, max_bins);
+    info!("Top k into bin done");
 
     let bin_lengths = vec![0; max_bins];
-    let mut largest = 10;
+    let mut largest = k;
     let mut total_items: usize = 0;
 
     for i in 0..max_bins {
@@ -54,22 +56,18 @@ fn main() {
         //debug!("indices in the bins: {:?}", results);
     }
 
-    let mut total_occurrences = 0;
-    let mut unique_indices = HashSet::new();
+    let mut duplicates = 0;
 
-    for i in 0..5200 {
-        let mut found = false;
-        for results in top_k.values() {
-            for index in results {
-                if i == *index {
-                    total_occurrences += 1;
-                    unique_indices.insert(i);
-                }
-            }
-        }
-    }
-
-    let duplicates = total_occurrences - unique_indices.len();
+    // Is this correct?
+    // for i in 0..5200 {
+    //     for results in top_k.values() {
+    //         for index in results {
+    //             if i == *index {
+    //                 duplicates += 1;
+    //             }
+    //         }
+    //     }
+    // }
 
     info!("In the non-colliding version there are a total of  {} bins. (total of {} items across all bins). duplicates counted: {}", top_k.len(), total_length, duplicates);
     info!(
@@ -77,4 +75,9 @@ fn main() {
         d, max_bins, total_items
     );
     info!("Largest bin was {}", largest);
+    info!(
+        "We saved roughly {}% by using {} choice",
+        duplicates / total_items,
+        d
+    );
 }

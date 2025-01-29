@@ -7,6 +7,7 @@ use bm25::{
     DefaultTokenizer, Embedder, EmbedderBuilder, Embedding, Language, Scorer, SearchEngine,
     SearchEngineBuilder, TokenEmbedding, Tokenizer,
 };
+use indicatif::ProgressBar;
 use rand::Rng;
 use tracing::{debug, info, trace};
 
@@ -35,6 +36,8 @@ pub fn get_alphabet(corpus: &Vec<String>) -> Result<HashSet<String>> {
     // Blame the borrow checker for this
     let slice: &[&str] = &corpus.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
 
+    let bar = ProgressBar::new(corpus.len() as u64);
+
     let tokenizer = DefaultTokenizer::builder()
         .language_mode(Language::English)
         .normalization(true)
@@ -55,11 +58,11 @@ pub fn get_alphabet(corpus: &Vec<String>) -> Result<HashSet<String>> {
     for (i, document) in corpus.iter().enumerate() {
         // let document_embedding = embedder.embed(document);
         // scorer.upsert(&i, document_embedding);
-
+        bar.inc(1);
         let tokens = tokenizer.tokenize(&document);
         set.extend(tokens);
     }
-
+    bar.finish();
     Ok(set)
 }
 
@@ -76,8 +79,11 @@ pub fn top_k(
 ) -> HashMap<String, HashSet<u32>> {
     let mut results = HashMap::new();
 
+    let bar = ProgressBar::new(alphabet.len() as u64);
+
     for word in alphabet {
         let search_results = search_engine.search(word, k);
+        bar.inc(1);
 
         for result in search_results {
             results
@@ -86,6 +92,8 @@ pub fn top_k(
                 .insert(result.document.id);
         }
     }
+
+    bar.finish();
 
     results
 }
@@ -111,6 +119,7 @@ pub fn top_k_bins(
     );
 
     let mut results = vec![HashSet::new(); max_bins];
+    let bar = ProgressBar::new(alphabet.len() as u64);
 
     for word in alphabet {
         let search_results = search_engine.search(word, k);
@@ -127,6 +136,8 @@ pub fn top_k_bins(
         let mut best_bin_index = 0;
         let mut max_overlap = 0;
 
+        bar.inc(1);
+
         for choice in 0..d {
             let index: usize = (get_hash(word, &choice) % (max_bins as u64))
                 .try_into()
@@ -137,7 +148,7 @@ pub fn top_k_bins(
 
             if overlap > max_overlap || max_overlap == 0 {
                 if (overlap > 0) {
-                    debug!("Best bin updated {}", overlap);
+                    //debug!("Best bin updated {}", overlap);
                 }
                 max_overlap = overlap;
                 best_bin_index = index;
@@ -146,6 +157,8 @@ pub fn top_k_bins(
 
         results[best_bin_index].extend(document_ids);
     }
+
+    bar.finish();
 
     results
 }
