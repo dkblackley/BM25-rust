@@ -1,9 +1,15 @@
 use crate::error::Result;
+use regex::Regex;
 use serde_json::Value;
 use std::{
     fs::File,
     io::{BufRead as _, BufReader},
 };
+
+fn remove_numbers(input: &str) -> String {
+    let re = Regex::new(r"\d+[,\d]*\.?\d*").unwrap();
+    re.replace_all(input, "").to_string()
+}
 
 pub fn return_data_as_string(filename: &str) -> Result<Vec<String>> {
     let file = File::open(filename)?;
@@ -13,7 +19,8 @@ pub fn return_data_as_string(filename: &str) -> Result<Vec<String>> {
         .map(|line| -> Result<String> {
             let line = line?;
             let json_val: Value = serde_json::from_str(&line)?;
-            Ok(json_val["abstract"].to_string())
+            //            Ok(remove_numbers(&json_val["text"].to_string()))
+            Ok(json_val["text"].to_string())
         })
         .collect::<Result<_>>()?;
 

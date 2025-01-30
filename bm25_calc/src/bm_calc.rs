@@ -8,6 +8,7 @@ use bm25::{
     SearchEngineBuilder, Tokenizer,
 };
 use indicatif::{ProgressBar, ProgressStyle};
+use regex::Regex;
 use tracing::{debug, info, trace};
 
 #[macro_export]
@@ -32,20 +33,7 @@ pub fn get_alphabet(corpus: &Vec<String>) -> Result<HashSet<String>> {
     //let mut scorer = Scorer::<usize>::new();
     let mut set = HashSet::new();
 
-    info!("Makking alphabet");
-
-    // Blame the borrow checker for this. It also takes ages.
-    let slice: &[&str] = &corpus.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
-
-    let tokenizer = DefaultTokenizer::builder()
-        .language_mode(Language::English)
-        .normalization(true)
-        .stopwords(true)
-        .stemming(true)
-        .build();
-
-    let embedder: Embedder<DefaultTokenizer> =
-        EmbedderBuilder::with_tokenizer_and_fit_to_corpus(tokenizer, slice).build();
+    info!("Making alphabet");
 
     let tokenizer = DefaultTokenizer::builder()
         .language_mode(Language::English)
@@ -58,10 +46,8 @@ pub fn get_alphabet(corpus: &Vec<String>) -> Result<HashSet<String>> {
     debug!("Bar init");
     let bar = ProgressBar::new(corpus.len() as u64);
     for (i, document) in corpus.iter().enumerate() {
-        // let document_embedding = embedder.embed(document);
-        // scorer.upsert(&i, document_embedding);
         bar.inc(1);
-        let tokens = tokenizer.tokenize(&document);
+        let tokens = tokenizer.tokenize(&new_tokens);
         set.extend(tokens);
     }
     bar.finish();
@@ -83,6 +69,9 @@ pub fn top_k(
 
     let bar = ProgressBar::new(alphabet.len() as u64);
 
+    let mut counting_duplicates = HashMap::new();
+    let mut num_items = 0;
+
     for word in alphabet {
         let search_results = search_engine.search(word, k);
         bar.inc(1);
@@ -92,8 +81,24 @@ pub fn top_k(
                 .entry(word.to_string())
                 .or_insert_with(HashSet::new)
                 .insert(result.document.id);
+            num_items = num_items + 1;
+            if counting_duplicates.contains_key(&result.document.id) {
+                *counting_duplicates.get_mut(&result.document.id).unwrap() += 1;
+            } else {
+                counting_duplicates.insert(result.document.id, 0);
+            }
+            debug!(
+                "id: {} item in bin: {:?}  ",
+                result.document.id, counting_duplicates
+            );
         }
     }
+
+    info!(
+        "Total number of duplicates: {}, total items in bins: {}",
+        counting_duplicates.values().sum::<i32>(),
+        num_items
+    );
 
     bar.finish();
 

@@ -10,14 +10,16 @@ fn main() {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    let d = 4;
+    let d = 1;
     let k = 10;
-    let max_bins = 1500;
 
     info!("Starting BM25 calculation");
     // TODO replace with cmd args
     //let corpus = dataloader::return_data_as_string("../scifact/corpus.jsonl").unwrap();
-    let corpus = dataloader::return_data_as_string("../arxiv-metadata-oai-snapshot.json").unwrap();
+    //let corpus = dataloader::return_data_as_string("../arxiv-metadata-oai-snapshot.json").unwrap();
+    let corpus = dataloader::return_data_as_string("../nyt_processed_regex.jsonl").unwrap();
+
+    let max_bins = corpus.len() / 100;
 
     let alphabet = bm_calc::get_alphabet(&corpus).unwrap();
 
