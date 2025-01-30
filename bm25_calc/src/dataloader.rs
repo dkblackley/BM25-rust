@@ -5,6 +5,7 @@ use std::{
     fs::File,
     io::{BufRead as _, BufReader},
 };
+use tracing::debug;
 
 fn remove_numbers(input: &str) -> String {
     let re = Regex::new(r"\d+[,\d]*\.?\d*").unwrap();
@@ -18,6 +19,7 @@ pub fn return_data_as_string(filename: &str) -> Result<Vec<String>> {
         .lines()
         .map(|line| -> Result<String> {
             let line = line?;
+            //debug! {"Value {}",  &line}
             let json_val: Value = serde_json::from_str(&line)?;
             //            Ok(remove_numbers(&json_val["text"].to_string()))
             Ok(json_val["text"].to_string())

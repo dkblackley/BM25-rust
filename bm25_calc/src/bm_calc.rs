@@ -23,12 +23,6 @@ macro_rules! default_tokenizer {
     };
 }
 
-pub struct BM25Scorer {
-    alphabet: HashSet<String>,
-    scorer: Scorer<usize>,
-    tokenizer: DefaultTokenizer,
-}
-
 pub fn get_alphabet(corpus: &Vec<String>) -> Result<HashSet<String>> {
     //let mut scorer = Scorer::<usize>::new();
     let mut set = HashSet::new();
@@ -47,7 +41,7 @@ pub fn get_alphabet(corpus: &Vec<String>) -> Result<HashSet<String>> {
     let bar = ProgressBar::new(corpus.len() as u64);
     for (i, document) in corpus.iter().enumerate() {
         bar.inc(1);
-        let tokens = tokenizer.tokenize(&new_tokens);
+        let tokens = tokenizer.tokenize(&document);
         set.extend(tokens);
     }
     bar.finish();
@@ -75,6 +69,7 @@ pub fn top_k(
     for word in alphabet {
         let search_results = search_engine.search(word, k);
         bar.inc(1);
+        let current_k = search_results.len();
 
         for result in search_results {
             results
@@ -88,8 +83,8 @@ pub fn top_k(
                 counting_duplicates.insert(result.document.id, 0);
             }
             debug!(
-                "id: {} item in bin: {:?}  ",
-                result.document.id, counting_duplicates
+                "id: {} item in bin: {:?}  size of k: {}",
+                result.document.id, counting_duplicates, current_k
             );
         }
     }

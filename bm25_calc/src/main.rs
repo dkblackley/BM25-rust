@@ -17,7 +17,7 @@ fn main() {
     // TODO replace with cmd args
     //let corpus = dataloader::return_data_as_string("../scifact/corpus.jsonl").unwrap();
     //let corpus = dataloader::return_data_as_string("../arxiv-metadata-oai-snapshot.json").unwrap();
-    let corpus = dataloader::return_data_as_string("../nyt_processed_regex.jsonl").unwrap();
+    let corpus = dataloader::return_data_as_string("../nyt_processed.jsonl").unwrap();
 
     let max_bins = corpus.len() / 100;
 
