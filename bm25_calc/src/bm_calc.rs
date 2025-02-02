@@ -76,16 +76,17 @@ pub fn top_k(
                 .entry(word.to_string())
                 .or_insert_with(HashSet::new)
                 .insert(result.document.id);
-            num_items = num_items + 1;
+            num_items += 1;
             if counting_duplicates.contains_key(&result.document.id) {
                 *counting_duplicates.get_mut(&result.document.id).unwrap() += 1;
+                debug!(
+                    "id: {} item in bin: {:?}  size of k: {}",
+                    result.document.id, counting_duplicates, current_k
+                );
+                panic!();
             } else {
                 counting_duplicates.insert(result.document.id, 0);
             }
-            debug!(
-                "id: {} item in bin: {:?}  size of k: {}",
-                result.document.id, counting_duplicates, current_k
-            );
         }
     }
 
