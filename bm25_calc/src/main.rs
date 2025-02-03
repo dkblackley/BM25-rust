@@ -33,39 +33,11 @@ fn main() {
 
     debug!("len: {}", items.len());
 
-    // for i in 0..1000 {
-    //     debug!("{}", &items[i]);
-    // }
-
     let search = bm_calc::build_search_engine(corpus).unwrap();
 
     let top_k = bm_calc::top_k(k, &search, &alphabet, filter_k);
     info!("Top K Done");
     let top_k_bins = bm_calc::top_k_bins(k, &search, &alphabet, d, max_bins, filter_k);
-    info!("Top k into bin done");
-
-    let mut largest = k;
-    let mut total_items: usize = 0;
-
-    for i in 0..max_bins {
-        let length = top_k_bins[i].len();
-        total_items = total_items + length;
-        //debug!("Length is {}", length);
-        if length > largest {
-            largest = length;
-        }
-    }
-
-    let mut total_length = 0;
-
-    for results in top_k.values() {
-        total_length += results.len();
-    }
-
-    info!("In the non-colliding version there are a total of  {} bins. (total of {} items across all bins)", top_k.len(), total_length);
-    info!(
-        "In the {} choice version with {} bins, there was {} items distributed across the buckets",
-        d, max_bins, total_items
-    );
-    info!("Largest bin was {}", largest);
+    let top_k_bins = bm_calc::top_k_bins(k, &search, &alphabet, d * 2, max_bins, filter_k);
+    let top_k_bins = bm_calc::top_k_bins(k, &search, &alphabet, d * 2 * 2, max_bins, filter_k);
 }

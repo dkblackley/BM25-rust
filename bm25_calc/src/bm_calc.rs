@@ -80,24 +80,24 @@ pub fn top_k(
             num_items += 1;
             if counting_duplicates.contains_key(&result.document.id) {
                 *counting_duplicates.get_mut(&result.document.id).unwrap() += 1;
-                // debug!(
-                //     "id: {} item in bin: {:?}  size of k: {}",
-                //     result.document.id, counting_duplicates, current_k
-                // );
-                // panic!();
             } else {
                 counting_duplicates.insert(result.document.id, 0);
             }
         }
     }
 
+    bar.finish();
+
     info!(
-        "Total number of duplicates: {}, total items in bins: {}",
+        "Top-K done without choice oir bins. Total number of duplicates: {}, total items in bins: {}",
         counting_duplicates.values().sum::<i32>(),
         num_items
     );
 
-    bar.finish();
+    info!(
+        "The average number of items in bins is {}",
+        results.values().map(|set| set.len()).sum::<usize>() as f64 / results.len() as f64
+    );
 
     results
 }
@@ -168,6 +168,11 @@ pub fn top_k_bins(
     info!(
         "top {} into {} bins with {} choice hashsing has finished. We saved roughly {} duplicates",
         k, max_bins, d, total_overlap
+    );
+
+    info!(
+        "The average number of items in bins is {}",
+        results.iter().map(|set| set.len()).sum::<usize>() as f64 / results.len() as f64
     );
 
     results
