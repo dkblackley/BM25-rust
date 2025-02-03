@@ -12,6 +12,7 @@ fn main() {
 
     let d = 1;
     let k = 10;
+    let filter_k = 2;
 
     info!("Starting BM25 calculation");
     // TODO replace with cmd args
@@ -32,18 +33,17 @@ fn main() {
 
     debug!("len: {}", items.len());
 
-    for i in 0..1000 {
-        debug!("{}", &items[i]);
-    }
+    // for i in 0..1000 {
+    //     debug!("{}", &items[i]);
+    // }
 
     let search = bm_calc::build_search_engine(corpus).unwrap();
 
-    let top_k = bm_calc::top_k(k, &search, &alphabet);
+    let top_k = bm_calc::top_k(k, &search, &alphabet, filter_k);
     info!("Top K Done");
-    let top_k_bins = bm_calc::top_k_bins(k, &search, &alphabet, d, max_bins);
+    let top_k_bins = bm_calc::top_k_bins(k, &search, &alphabet, d, max_bins, filter_k);
     info!("Top k into bin done");
 
-    let bin_lengths = vec![0; max_bins];
     let mut largest = k;
     let mut total_items: usize = 0;
 
@@ -60,31 +60,12 @@ fn main() {
 
     for results in top_k.values() {
         total_length += results.len();
-        //debug!("indices in the bins: {:?}", results);
     }
 
-    let duplicates = 0;
-
-    // Is this correct?
-    // for i in 0..5200 {
-    //     for results in top_k.values() {
-    //         for index in results {
-    //             if i == *index {
-    //                 duplicates += 1;
-    //             }
-    //         }
-    //     }
-    // }
-
-    info!("In the non-colliding version there are a total of  {} bins. (total of {} items across all bins). duplicates counted: {}", top_k.len(), total_length, duplicates);
+    info!("In the non-colliding version there are a total of  {} bins. (total of {} items across all bins)", top_k.len(), total_length);
     info!(
         "In the {} choice version with {} bins, there was {} items distributed across the buckets",
         d, max_bins, total_items
     );
     info!("Largest bin was {}", largest);
-    info!(
-        "We saved roughly {}% by using {} choice",
-        duplicates / total_items,
-        d
-    );
 }

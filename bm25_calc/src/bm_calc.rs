@@ -49,8 +49,6 @@ pub fn get_alphabet(corpus: &Vec<String>) -> Result<HashSet<String>> {
 }
 
 pub fn build_search_engine(corpus: Vec<impl Into<String>>) -> Result<SearchEngine<u32>> {
-    // TODO Flesh this out more
-
     Ok(SearchEngineBuilder::<u32>::with_corpus(Language::English, corpus).build())
 }
 
@@ -58,6 +56,7 @@ pub fn top_k(
     k: usize,
     search_engine: &SearchEngine<u32>,
     alphabet: &HashSet<String>,
+    filter_k: usize,
 ) -> HashMap<String, HashSet<u32>> {
     let mut results = HashMap::new();
 
@@ -69,7 +68,9 @@ pub fn top_k(
     for word in alphabet {
         let search_results = search_engine.search(word, k);
         bar.inc(1);
-        let current_k = search_results.len();
+        if search_results.len() < filter_k {
+            continue;
+        }
 
         for result in search_results {
             results
@@ -79,11 +80,11 @@ pub fn top_k(
             num_items += 1;
             if counting_duplicates.contains_key(&result.document.id) {
                 *counting_duplicates.get_mut(&result.document.id).unwrap() += 1;
-                debug!(
-                    "id: {} item in bin: {:?}  size of k: {}",
-                    result.document.id, counting_duplicates, current_k
-                );
-                panic!();
+                // debug!(
+                //     "id: {} item in bin: {:?}  size of k: {}",
+                //     result.document.id, counting_duplicates, current_k
+                // );
+                // panic!();
             } else {
                 counting_duplicates.insert(result.document.id, 0);
             }
@@ -115,6 +116,7 @@ pub fn top_k_bins(
     alphabet: &HashSet<String>,
     d: usize,
     max_bins: usize,
+    filter_k: usize,
 ) -> Vec<HashSet<u32>> {
     info!(
         "Starting top {} into {} bins with {} choice hashsing",
@@ -123,19 +125,20 @@ pub fn top_k_bins(
 
     let mut results = vec![HashSet::new(); max_bins];
     let bar = ProgressBar::new(alphabet.len() as u64);
+    let mut total_overlap = 0;
 
     for word in alphabet {
         let search_results = search_engine.search(word, k);
+
+        if search_results.len() < filter_k {
+            continue;
+        }
+
         let document_ids: HashSet<u32> = search_results
             .iter()
             .map(|result| result.document.id)
             .collect();
 
-        // let mut rng = rand::thread_rng();
-
-        //  while document_ids.len() < k {
-        //      document_ids.insert(rng.gen_range(0..=5100) as u32);
-        //  }
         let mut best_bin_index = 0;
         let mut max_overlap = 0;
 
@@ -150,18 +153,22 @@ pub fn top_k_bins(
             let overlap = results[index].intersection(&document_ids).count();
 
             if overlap > max_overlap || max_overlap == 0 {
-                if overlap > 0 {
-                    //debug!("Best bin updated {}", overlap);
-                }
                 max_overlap = overlap;
                 best_bin_index = index;
             }
         }
 
+        total_overlap += max_overlap;
+
         results[best_bin_index].extend(document_ids);
     }
 
     bar.finish();
+
+    info!(
+        "top {} into {} bins with {} choice hashsing has finished. We saved roughly {} duplicates",
+        k, max_bins, d, total_overlap
+    );
 
     results
 }
