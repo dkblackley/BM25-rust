@@ -31,7 +31,7 @@ struct Args {
     file: String,
 
     /// The key in the JSON which holds the file/text we want to search over.
-    #[arg(short, long, default_value = "text")]
+    #[arg(long, long, default_value = "text")]
     key: String,
 }
 
