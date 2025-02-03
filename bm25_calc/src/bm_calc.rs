@@ -3,10 +3,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::time::Duration;
 
 use crate::error::Result;
-use bm25::{
-    DefaultTokenizer, Embedder, EmbedderBuilder, Language, Scorer, SearchEngine,
-    SearchEngineBuilder, Tokenizer,
-};
+use bm25::{DefaultTokenizer, Language, SearchEngine, SearchEngineBuilder, Tokenizer};
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 use tracing::{debug, info, trace};
@@ -180,11 +177,8 @@ pub fn top_k_bins(
 
 #[cfg(test)]
 mod tests {
-    use bm25::Tokenizer;
 
     use tracing::info;
-
-    use super::*;
 
     use super::*;
     static CORPUS: [&str; 4] = [

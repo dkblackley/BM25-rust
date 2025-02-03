@@ -12,3 +12,8 @@ tracing-subscriber = "0.3"
 rand = "0.8.5"
 indicatif = "0.17"
 regex = "1.10.2"
+
+[lints.clippy]
+pedantic = "warn"
+nursery = "warn"
+restriction = "warn"
