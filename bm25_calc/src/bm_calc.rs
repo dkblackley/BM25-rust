@@ -1,11 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::time::Duration;
 
 use crate::error::Result;
 use bm25::{DefaultTokenizer, Language, SearchEngine, SearchEngineBuilder, Tokenizer};
-use indicatif::{ProgressBar, ProgressStyle};
-use regex::Regex;
+use indicatif::ProgressBar;
 use tracing::{debug, info, trace};
 
 #[macro_export]
@@ -20,35 +18,54 @@ macro_rules! default_tokenizer {
     };
 }
 
+/// Gets the "alphabet" or the entire set of possible keywords. Returns a hashset of the keywords
+///
+/// # Arguments
+/// * `corpus` - Vector of documents  (as strings)to tokenize
+///
+/// # Returns
+/// * `Result<HashSet<String>>` - Set of unique tokens
+#[allow(clippy::ptr_arg)] // allow this for test cases
 pub fn get_alphabet(corpus: &Vec<String>) -> Result<HashSet<String>> {
-    //let mut scorer = Scorer::<usize>::new();
     let mut set = HashSet::new();
-
     info!("Making alphabet");
 
-    let tokenizer = DefaultTokenizer::builder()
-        .language_mode(Language::English)
-        .normalization(true)
-        .stopwords(true)
-        .stemming(true)
-        .build();
+    let tokenizer = default_tokenizer!();
 
     info!("scanning alphabet");
     debug!("Bar init");
     let bar = ProgressBar::new(corpus.len() as u64);
-    for (i, document) in corpus.iter().enumerate() {
+    for document in corpus.iter() {
         bar.inc(1);
-        let tokens = tokenizer.tokenize(&document);
+        let tokens = tokenizer.tokenize(document);
         set.extend(tokens);
     }
     bar.finish();
     Ok(set)
 }
 
-pub fn build_search_engine(corpus: Vec<impl Into<String>>) -> Result<SearchEngine<u32>> {
-    Ok(SearchEngineBuilder::<u32>::with_corpus(Language::English, corpus).build())
+/// Builds a search engine from a corpus of documents (See the BM25 crate girhubpage/documentation)
+///
+/// # Arguments
+/// * `corpus` - Collection of documents that can be converted to Strings. Usually just passed in as a string.
+///
+/// # Returns
+/// * `SearchEngine<u32>` - Search engine initialized and ready to search through the entire corpus
+pub fn build_search_engine(corpus: Vec<impl Into<String>>) -> SearchEngine<u32> {
+    SearchEngineBuilder::<u32>::with_corpus(Language::English, corpus).build()
 }
 
+/// Performs top-k search for each word in the alphabet and filters results. Doesn't do any choice hashing or anything speical, just returns top-k. Theoretic return size is O(k * alphabet), i.e. each bin has 10 full results in each bin
+///
+/// # Arguments
+/// * `k` - Number of results to retrieve per word. the k in top-k
+/// * `search_engine` - Search engine to query (See Rust BM25 crate)
+/// * `alphabet` - The keyword space
+/// * `filter_k` - Minimum number of results required to keep a word. I.e. if this is 2, then allr esults with a top-k of only 1 while be discarded
+///
+/// # Returns
+/// * `HashMap<String, HashSet<u32>>` - Map of words to sets of matching document IDs. The ID matches the index in the corpus array (See BM25 crate)
+#[allow(clippy::map_entry)] // allow this because debugging is easier when using insert
 pub fn top_k(
     k: usize,
     search_engine: &SearchEngine<u32>,
@@ -66,6 +83,7 @@ pub fn top_k(
         let search_results = search_engine.search(word, k);
         bar.inc(1);
         if search_results.len() < filter_k {
+            // filter out low results
             continue;
         }
 
@@ -74,10 +92,12 @@ pub fn top_k(
                 .entry(word.to_string())
                 .or_insert_with(HashSet::new)
                 .insert(result.document.id);
-            num_items += 1;
+            num_items += 1; // increment the total number of items in bins for logging
             if counting_duplicates.contains_key(&result.document.id) {
+                // if this item was already previously inserted, count it as a duplicate
                 *counting_duplicates.get_mut(&result.document.id).unwrap() += 1;
             } else {
+                // if this is the first time we're seeing this document ID, insert it as a new item
                 counting_duplicates.insert(result.document.id, 0);
             }
         }
@@ -86,7 +106,7 @@ pub fn top_k(
     bar.finish();
 
     info!(
-        "Top-K done without choice oir bins. Total number of duplicates: {}, total items in bins: {}",
+        "Top-K done without d-choice. Total number of duplicates: {}, total items in bins: {}",
         counting_duplicates.values().sum::<i32>(),
         num_items
     );
@@ -99,6 +119,14 @@ pub fn top_k(
     results
 }
 
+/// Deterministic functiont that can generate a hash value from a string and number
+///
+/// # Arguments
+/// * `s` - String to hash
+/// * `n` - Number to combine with string hash
+///
+/// # Returns
+/// * `u64` - Combined hash value
 fn get_hash(s: &str, n: &usize) -> u64 {
     let mut hasher = DefaultHasher::new();
     trace!("about to hash {} and {}", s, n);
@@ -107,6 +135,23 @@ fn get_hash(s: &str, n: &usize) -> u64 {
     hasher.finish()
 }
 
+/// Performs top-k search with d-choice hashing into multiple bins. Function is deterministic and should reveal the same results over each run.
+///
+/// # Arguments
+/// * `k` - Number of results to retrieve per word. the k in top-k
+/// * `search_engine` - Search engine to query
+/// * `alphabet` - The keyword space
+/// * `d` - Number of hash choices per word
+/// * `max_bins` - Number of bins to distribute results into
+/// * `filter_k` - Minimum number of results required to keep a word
+///
+/// # Returns
+/// * `Vec<HashSet<u32>>` - Vector of bins containing document IDs
+///
+/// # Notes
+/// Uses d-choice hashing to minimize collisions. For each word,
+/// tries d different hash functions and places results in bin
+/// with maximum overlap.
 pub fn top_k_bins(
     k: usize,
     search_engine: &SearchEngine<u32>,
@@ -114,7 +159,7 @@ pub fn top_k_bins(
     d: usize,
     max_bins: usize,
     filter_k: usize,
-) -> Vec<HashSet<u32>> {
+) -> Result<Vec<HashSet<u32>>> {
     info!(
         "Starting top {} into {} bins with {} choice hashsing",
         k, max_bins, d
@@ -142,9 +187,7 @@ pub fn top_k_bins(
         bar.inc(1);
 
         for choice in 0..d {
-            let index: usize = (get_hash(word, &choice) % (max_bins as u64))
-                .try_into()
-                .unwrap();
+            let index: usize = (get_hash(word, &choice) % (max_bins as u64)).try_into()?;
 
             trace!("Got index {}", index);
             let overlap = results[index].intersection(&document_ids).count();
@@ -172,7 +215,7 @@ pub fn top_k_bins(
         results.iter().map(|set| set.len()).sum::<usize>() as f64 / results.len() as f64
     );
 
-    results
+    Ok(results)
 }
 
 #[cfg(test)]
@@ -190,14 +233,14 @@ mod tests {
 
     #[test]
     fn get_top_k() {
-        tracing_subscriber::fmt()
+        let _ = tracing_subscriber::fmt()
             .with_test_writer()
             .with_max_level(tracing::Level::DEBUG)
             .try_init();
 
-        let search = build_search_engine(CORPUS.iter().map(|&s| s.to_string()).collect()).unwrap();
+        let search = build_search_engine(CORPUS.iter().map(|&s| s.to_string()).collect());
         let alphabet = get_alphabet(&CORPUS.iter().map(|&s| s.to_string()).collect()).unwrap();
-        let top_k = top_k(10, &search, &alphabet);
+        let _top_k = top_k(10, &search, &alphabet, 4);
     }
 
     #[test]
@@ -211,12 +254,12 @@ mod tests {
 
         let corpus = corpus_str.iter().map(|&s| s.to_string()).collect();
 
-        tracing_subscriber::fmt()
+        let _ = tracing_subscriber::fmt()
             .with_test_writer()
             .with_max_level(tracing::Level::TRACE)
             .try_init();
 
-        let d = 4;
+        let d = 10;
         let k = 4;
         let max_bins = 4;
 
@@ -229,16 +272,13 @@ mod tests {
             alphabet.len()
         );
 
-        let search = build_search_engine(corpus).unwrap();
-        let top_k_bins = top_k_bins(k, &search, &alphabet, d, max_bins);
+        let search = build_search_engine(corpus);
+        let top_k_bins = top_k_bins(k, &search, &alphabet, d, max_bins, 4).unwrap();
 
-        let bin_lengths = vec![0; max_bins];
-
-        for i in 0..max_bins {
+        (0..max_bins).for_each(|i| {
             let length = top_k_bins[i].len();
             debug!("Length is {}", length);
             assert!(length == 0 || length == 4);
-        }
-        panic!();
+        });
     }
 }
