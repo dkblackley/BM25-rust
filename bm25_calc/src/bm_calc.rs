@@ -220,7 +220,6 @@ pub fn top_k_bins(
         "The average number of items in bins is {}",
         results.iter().map(|set| set.len()).sum::<usize>() as f64 / results.len() as f64
     );
-    panic!();
     Ok(results)
 }
 
