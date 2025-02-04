@@ -38,7 +38,7 @@ struct Args {
 fn main() {
     tracing_subscriber::fmt()
         .with_test_writer()
-        .with_max_level(tracing::Level::DEBUG)
+        .with_max_level(tracing::Level::TRACE)
         .init();
 
     let args = Args::parse();
@@ -48,10 +48,9 @@ fn main() {
     let filter_k = args.filter_k;
 
     info!("Starting BM25 calculation");
-    // TODO replace with cmd args
     let corpus = dataloader::return_data_as_string(&args.file, &args.key).unwrap();
 
-    let max_bins = corpus.len() / 100;
+    let max_bins = corpus.len() / 10;
 
     let alphabet = bm_calc::get_alphabet(&corpus).unwrap();
 
@@ -66,7 +65,7 @@ fn main() {
     bm_calc::top_k(k, &search, &alphabet, filter_k);
     info!("Top K Done");
 
-    for i in 0..d {
+    for i in 1..d {
         if let Err(e) = bm_calc::top_k_bins(k, &search, &alphabet, i, max_bins, filter_k) {
             error!("Error at {i}, {filter_k}: {e}");
         }

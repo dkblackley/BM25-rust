@@ -119,7 +119,7 @@ pub fn top_k(
     results
 }
 
-/// Deterministic functiont that can generate a hash value from a string and number
+/// Deterministic function that can generate a hash value from a string and number
 ///
 /// # Arguments
 /// * `s` - String to hash
@@ -189,8 +189,14 @@ pub fn top_k_bins(
         for choice in 0..d {
             let index: usize = (get_hash(word, &choice) % (max_bins as u64)).try_into()?;
 
-            trace!("Got index {}", index);
             let overlap = results[index].intersection(&document_ids).count();
+            trace!(
+                "Got index {}, overlap: {}, k: {}, bin size: {}",
+                index,
+                overlap,
+                search_results.len(),
+                results[index].len()
+            );
 
             if overlap > max_overlap || max_overlap == 0 {
                 max_overlap = overlap;
@@ -214,7 +220,7 @@ pub fn top_k_bins(
         "The average number of items in bins is {}",
         results.iter().map(|set| set.len()).sum::<usize>() as f64 / results.len() as f64
     );
-
+    panic!();
     Ok(results)
 }
 
