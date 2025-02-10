@@ -204,12 +204,10 @@ pub fn top_k_bins(
                 search_results.len(),
                 bin_size
             );
+            
+            bin_choices.push((index, bin_size, overlap));
 
-            //TODO I think I need to remove this if statement and mess with when the load factor check occurs
-            if max_load {
-                // Collect information about all bin choices
-                bin_choices.push((index, bin_size, overlap));
-            } else {
+            if !max_load {
                 // For non-max_load case, simply track the bin with maximum overlap
                 if overlap > max_overlap || max_overlap == 0 {
                     max_overlap = overlap;
@@ -219,20 +217,29 @@ pub fn top_k_bins(
         }
 
         // Process max_load case after collecting all choices
-        if max_load && !bin_choices.is_empty() {
-            // Sort bins by size in descending order (fullest first)
+        if !bin_choices.is_empty() {
+            // sort bins by size in descending order (fullest first)
             bin_choices.sort_by(|a, b| b.1.cmp(&a.1));
+            
+            if max_load {
 
-            // Reset max_overlap since we're now looking at a subset
-            max_overlap = 0;
+                // Reset max_overlap since we're now looking at a subset
+                max_overlap = 0;
+                best_bin_index = bin_choices
 
-            // Skip the max_load_factor fullest bins and find max overlap among remaining
-            for &(idx, _, curr_overlap) in bin_choices.iter().skip(max_load_factor) {
-                if curr_overlap > max_overlap {
-                    max_overlap = curr_overlap;
-                    best_bin_index = idx;
+                // Skip the max_load_factor fullest bins and find max overlap among remaining
+                for &(idx, _, curr_overlap) in bin_choices.iter().skip(max_load_factor) {
+                    if curr_overlap > max_overlap {
+                        max_overlap = curr_overlap;
+                        best_bin_index = idx;
+                    }
                 }
+
+            } else if max_load_factor > 1 {
+
+
             }
+
 
             // If all bins were skipped (max_load_factor >= d), use the last bin
             if max_load_factor >= bin_choices.len() {
@@ -321,7 +328,7 @@ mod tests {
         );
 
         let search = build_search_engine(corpus);
-        let top_k_bins = top_k_bins(k, &search, &alphabet, d, max_bins, 4).unwrap();
+        let top_k_bins = top_k_bins(k, &search, &alphabet, d, max_bins, 4, false, 0).unwrap();
 
         (0..max_bins).for_each(|i| {
             let length = top_k_bins[i].len();

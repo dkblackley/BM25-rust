@@ -13,7 +13,7 @@ use crate::error::Result;
 ///
 /// returns: Result<(), Box<dyn std::error::Error>>
 #[allow(unsafe_code)] // allow unwraps because plotters has a silly generic
-fn fullness_histogram(histogram: Vec<HashSet<u32>>, sorted: bool) -> Result<()> {
+fn fullness_histogram(histogram: Vec<HashSet<u32>>, sorted: bool, title: &String) -> Result<()> {
     // Count items in each bin
     let mut bin_counts: Vec<(usize, usize)> = histogram
         .iter()
@@ -35,7 +35,7 @@ fn fullness_histogram(histogram: Vec<HashSet<u32>>, sorted: bool) -> Result<()> 
     root.fill(&WHITE).unwrap();
 
     let mut chart = ChartBuilder::on(&root)
-        .caption("Bin Fullness Histogram", ("sans-serif", 40))
+        .caption(&title, ("sans-serif", 40))
         .margin(5)
         .x_label_area_size(30)
         .y_label_area_size(30)
