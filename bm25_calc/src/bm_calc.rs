@@ -186,8 +186,8 @@ pub fn top_k_bins(
             .map(|result| result.document.id)
             .collect();
 
-        let mut best_bin_index = 0;
-        let mut max_overlap = 0;
+        let mut best_bin_index ;
+        let mut max_overlap;
         let mut bin_choices = Vec::with_capacity(d);
 
         // Try d different hash functions

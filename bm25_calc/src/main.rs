@@ -44,8 +44,7 @@ fn main() {
 
     let args = Args::parse();
 
-    let d = args.d;
-    let k = args.k;
+        let k = args.k;
     let filter_k = args.filter_k;
 
     info!("Starting BM25 calculation");
@@ -63,7 +62,7 @@ fn main() {
 
     let top_k_res = bm_calc::top_k(k, &search, &alphabet, filter_k);
     info!("Top K Done");
-    plotter::fullness_histogram(top_k_res.values().map(|set| set.clone()).collect(), true, &"Top K (No bins)".to_string(), top_k_res.values().len() as i32);
+    plotter::fullness_histogram(top_k_res.values().map(|set| set.clone()).collect(), true, &"Top K (No bins)".to_string(), top_k_res.values().len() as i32).expect("TODO: panic message");
 
     let max_bins = top_k_res.values().len() / 10;
 

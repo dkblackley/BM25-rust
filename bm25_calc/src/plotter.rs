@@ -19,7 +19,7 @@ pub fn fullness_histogram(mut histogram: Vec<HashSet<u32>>, sorted: bool, title:
         histogram.sort_by(|a, b| b.len().cmp(&a.len()));
     }
 
-    let mut bin_counts: Vec<(usize, usize)> = histogram
+    let bin_counts: Vec<(usize, usize)> = histogram
         .iter()
         .enumerate()
         .map(|(idx, set)| (idx, set.len()))
@@ -28,7 +28,7 @@ pub fn fullness_histogram(mut histogram: Vec<HashSet<u32>>, sorted: bool, title:
     // Consolidate bins into 30 groups
     let target_bins = granularity;
     let bins_per_group = (bin_counts.len() as f64 / target_bins as f64).ceil() as usize;
-    let mut consolidated_bins: Vec<(usize, usize)> = bin_counts
+    let consolidated_bins: Vec<(usize, usize)> = bin_counts
         .chunks(bins_per_group)
         .enumerate()
         .map(|(idx, chunk)| {
