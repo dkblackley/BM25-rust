@@ -204,55 +204,31 @@ pub fn top_k_bins(
                 search_results.len(),
                 bin_size
             );
-            
+
             bin_choices.push((index, bin_size, overlap));
-
-            if !max_load {
-                // For non-max_load case, simply track the bin with maximum overlap
-                if overlap > max_overlap || max_overlap == 0 {
-                    max_overlap = overlap;
-                    best_bin_index = index;
-                }
-            }
         }
 
-        // Process max_load case after collecting all choices
-        if !bin_choices.is_empty() {
-            // sort bins by size in descending order (fullest first)
-            bin_choices.sort_by(|a, b| b.1.cmp(&a.1));
-            
-            if max_load {
+        // sort bins by size in descending order (fullest first)
+        bin_choices.sort_by(|a, b| b.1.cmp(&a.1));
+        best_bin_index = bin_choices.first().unwrap().0;
+        max_overlap = bin_choices.first().unwrap().2;
 
-                // Reset max_overlap since we're now looking at a subset
-                max_overlap = 0;
-                best_bin_index = bin_choices
+        if !max_load  {
 
-                // Skip the max_load_factor fullest bins and find max overlap among remaining
-                for &(idx, _, curr_overlap) in bin_choices.iter().skip(max_load_factor) {
-                    if curr_overlap > max_overlap {
-                        max_overlap = curr_overlap;
-                        best_bin_index = idx;
-                    }
+            best_bin_index = bin_choices[max_load_factor].0;
+            max_overlap = bin_choices[max_load_factor].2;
+            // Skip the max_load_factor fullest bins and find max overlap among remaining
+            for &(idx, _, curr_overlap) in bin_choices.iter().skip(max_load_factor) {
+                if curr_overlap > max_overlap {
+                    max_overlap = curr_overlap;
+                    best_bin_index = idx;
                 }
-
-            } else if max_load_factor > 1 {
-
-
             }
 
-
-            // If all bins were skipped (max_load_factor >= d), use the last bin
-            if max_load_factor >= bin_choices.len() {
-                let last_choice = bin_choices.last().unwrap();
-                best_bin_index = last_choice.0;
-                max_overlap = last_choice.2;
-            }
         }
 
-        // Add to running total of overlaps saved
         total_overlap += max_overlap;
 
-        // Add document IDs to the selected bin
         results[best_bin_index].extend(document_ids);
 
         bar.inc(1);

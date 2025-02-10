@@ -13,46 +13,55 @@ use crate::error::Result;
 ///
 /// returns: Result<(), Box<dyn std::error::Error>>
 #[allow(unsafe_code)] // allow unwraps because plotters has a silly generic
-fn fullness_histogram(histogram: Vec<HashSet<u32>>, sorted: bool, title: &String) -> Result<()> {
-    // Count items in each bin
+pub fn fullness_histogram(mut histogram: Vec<HashSet<u32>>, sorted: bool, title: &String, granularity: i32) -> Result<()> {
+
+    if sorted {
+        histogram.sort_by(|a, b| b.len().cmp(&a.len()));
+    }
+
     let mut bin_counts: Vec<(usize, usize)> = histogram
         .iter()
         .enumerate()
         .map(|(idx, set)| (idx, set.len()))
         .collect();
 
-    if sorted {
-        bin_counts.sort_by(|a, b| b.1.cmp(&a.1));
-    }
+    // Consolidate bins into 30 groups
+    let target_bins = granularity;
+    let bins_per_group = (bin_counts.len() as f64 / target_bins as f64).ceil() as usize;
+    let mut consolidated_bins: Vec<(usize, usize)> = bin_counts
+        .chunks(bins_per_group)
+        .enumerate()
+        .map(|(idx, chunk)| {
+            let total = chunk.iter().map(|(_, count)| count).sum();
+            (idx, total)
+        })
+        .collect();
 
-    let max_count = bin_counts.iter().map(|(_, count)| count).max().unwrap_or(&0);
-    let num_bins = bin_counts.len();
+    let max_count = consolidated_bins.iter().map(|(_, count)| count).max().unwrap_or(&0);
+    let y_max = (*max_count as f64 * 1.1) as usize;
+    let num_bins = consolidated_bins.len();
 
-    // Create a drawing area on an 800x600 bitmap
-    let root = BitMapBackend::new("histogram.png", (800, 600))
-        .into_drawing_area();
-
+    let output = String::from(title) + "_histogram.png";
+    let root = BitMapBackend::new(&output, (800, 600)).into_drawing_area();
     root.fill(&WHITE).unwrap();
+
+
 
     let mut chart = ChartBuilder::on(&root)
         .caption(&title, ("sans-serif", 40))
         .margin(5)
         .x_label_area_size(30)
         .y_label_area_size(30)
-        .build_cartesian_2d(
-            0..num_bins,
-            0..*max_count
-        ).unwrap();
+        .build_cartesian_2d(0..num_bins, 0..y_max).unwrap();
 
-    chart.configure_mesh().draw().unwrap();
+    chart.configure_mesh().disable_mesh() // Remove grid lines
+        .x_desc("Bin Number")
+        .y_desc("Count").axis_style(BLACK.mix(0.8)).draw().unwrap();
 
-    // Draw the histogram bars
     chart.draw_series(
-        bin_counts.iter().map(|(idx, count)| {
-            let x = *idx;
-            let y = *count;
+        consolidated_bins.iter().map(|(idx, count)| {
             Rectangle::new(
-                [(x, 0), (x + 1, y)],
+                [(*idx, 0), (idx + 1, *count)],
                 RED.filled(),
             )
         }),

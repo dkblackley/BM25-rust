@@ -6,10 +6,10 @@ pub(crate) mod bm_calc;
 pub(crate) mod dataloader;
 /// error.rs - this holds a single enum that we can put our errors into.
 pub(crate) mod error;
-mod plotter;
+pub(crate) mod plotter;
 
 use clap::{arg, command, Parser};
-use tracing::{error, info};
+use tracing::{info};
 
 /// Clap structure used to quickly parse cmd args
 #[derive(Parser)]
@@ -51,8 +51,6 @@ fn main() {
     info!("Starting BM25 calculation");
     let corpus = dataloader::return_data_as_string(&args.file, &args.key).unwrap();
 
-    let max_bins = corpus.len() / 10;
-
     let alphabet = bm_calc::get_alphabet(&corpus).unwrap();
 
     info!(
@@ -63,14 +61,33 @@ fn main() {
 
     let search = bm_calc::build_search_engine(corpus);
 
-    bm_calc::top_k(k, &search, &alphabet, filter_k);
+    let top_k_res = bm_calc::top_k(k, &search, &alphabet, filter_k);
     info!("Top K Done");
+    plotter::fullness_histogram(top_k_res.values().map(|set| set.clone()).collect(), true, &"Top K (No bins)".to_string(), top_k_res.values().len() as i32);
 
-    for i in 1..d {
-        if let Err(e) = bm_calc::top_k_bins(k, &search, &alphabet, i * 10, max_bins, filter_k, true, 0)
-        {
-            error!("Error at {i}: {e}");
-            error!("Error at {i}, {filter_k}: {e}");
-        }
-    }
+    let max_bins = top_k_res.values().len() / 10;
+
+    let no_choice_bins = bm_calc::top_k_bins(k, &search, &alphabet, 1, max_bins, filter_k, false, 0).expect("TODO: panic message");
+    plotter::fullness_histogram(no_choice_bins, true, &format!("Top K 1-choice {max_bins}-bins").to_string(), max_bins as i32).expect("TODO: panic message");
+
+    let two_choice_bins = bm_calc::top_k_bins(k, &search, &alphabet, 2, max_bins, filter_k, false, 0).expect("TODO: panic message");
+    plotter::fullness_histogram(two_choice_bins, true, &format!("Top K 2-choice {max_bins}-bins").to_string(), max_bins as i32).expect("TODO: panic message");
+
+    let three_choice_bins = bm_calc::top_k_bins(k, &search, &alphabet, 3, max_bins, filter_k, false, 0).expect("TODO: panic message");
+    plotter::fullness_histogram(three_choice_bins, true, &format!("Top K 3-choice {max_bins}-bins").to_string(), max_bins as i32).expect("TODO: panic message");
+
+    let three_choice_bins_remove_one = bm_calc::top_k_bins(k, &search, &alphabet, 3, max_bins, filter_k, false, 1).expect("TODO: panic message");
+    plotter::fullness_histogram(three_choice_bins_remove_one, true, &format!("3-choice, {max_bins}-bins and 1 max-load bin removed").to_string(), max_bins as i32).expect("TODO: panic message");
+
+    let two_choice_bins_max_load = bm_calc::top_k_bins(k, &search, &alphabet, 2, max_bins, filter_k, true, 0).expect("TODO: panic message");
+    plotter::fullness_histogram(two_choice_bins_max_load, true, &format!("Top K 2-choice {max_bins}-bins, minimising load").to_string(), max_bins as i32).expect("TODO: panic message");
+
+
+    // for i in 1..d {
+    //     if let Err(e) = bm_calc::top_k_bins(k, &search, &alphabet, i * 10, max_bins, filter_k, true, 0)
+    //     {
+    //         error!("Error at {i}: {e}");
+    //         error!("Error at {i}, {filter_k}: {e}");
+    //     }
+    // }
 }
