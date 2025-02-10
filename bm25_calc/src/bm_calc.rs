@@ -159,9 +159,11 @@ pub fn top_k_bins(
     d: usize,
     max_bins: usize,
     filter_k: usize,
+    max_load: bool,
+    max_load_factor: usize,
 ) -> Result<Vec<HashSet<u32>>> {
     info!(
-        "Starting top {} into {} bins with {} choice hashsing",
+        "Starting top {} into {} bins with {} choice hashing",
         k, max_bins, d
     );
 
@@ -172,10 +174,13 @@ pub fn top_k_bins(
     for word in alphabet {
         let search_results = search_engine.search(word, k);
 
+        // Skip words with too few results
         if search_results.len() < filter_k {
+            bar.inc(1);
             continue;
         }
 
+        // Convert search results to document IDs
         let document_ids: HashSet<u32> = search_results
             .iter()
             .map(|result| result.document.id)
@@ -183,36 +188,73 @@ pub fn top_k_bins(
 
         let mut best_bin_index = 0;
         let mut max_overlap = 0;
+        let mut bin_choices = Vec::with_capacity(d);
 
-        bar.inc(1);
-
+        // Try d different hash functions
         for choice in 0..d {
             let index: usize = (get_hash(word, &choice) % (max_bins as u64)).try_into()?;
 
             let overlap = results[index].intersection(&document_ids).count();
+            let bin_size = results[index].len();
+
             trace!(
                 "Got index {}, overlap: {}, k: {}, bin size: {}",
                 index,
                 overlap,
                 search_results.len(),
-                results[index].len()
+                bin_size
             );
 
-            if overlap > max_overlap || max_overlap == 0 {
-                max_overlap = overlap;
-                best_bin_index = index;
+            //TODO I think I need to remove this if statement and mess with when the load factor check occurs
+            if max_load {
+                // Collect information about all bin choices
+                bin_choices.push((index, bin_size, overlap));
+            } else {
+                // For non-max_load case, simply track the bin with maximum overlap
+                if overlap > max_overlap || max_overlap == 0 {
+                    max_overlap = overlap;
+                    best_bin_index = index;
+                }
             }
         }
 
+        // Process max_load case after collecting all choices
+        if max_load && !bin_choices.is_empty() {
+            // Sort bins by size in descending order (fullest first)
+            bin_choices.sort_by(|a, b| b.1.cmp(&a.1));
+
+            // Reset max_overlap since we're now looking at a subset
+            max_overlap = 0;
+
+            // Skip the max_load_factor fullest bins and find max overlap among remaining
+            for &(idx, _, curr_overlap) in bin_choices.iter().skip(max_load_factor) {
+                if curr_overlap > max_overlap {
+                    max_overlap = curr_overlap;
+                    best_bin_index = idx;
+                }
+            }
+
+            // If all bins were skipped (max_load_factor >= d), use the last bin
+            if max_load_factor >= bin_choices.len() {
+                let last_choice = bin_choices.last().unwrap();
+                best_bin_index = last_choice.0;
+                max_overlap = last_choice.2;
+            }
+        }
+
+        // Add to running total of overlaps saved
         total_overlap += max_overlap;
 
+        // Add document IDs to the selected bin
         results[best_bin_index].extend(document_ids);
+
+        bar.inc(1);
     }
 
     bar.finish();
 
     info!(
-        "top {} into {} bins with {} choice hashsing has finished. We saved roughly {} duplicates",
+        "top {} into {} bins with {} choice hashing has finished. We saved roughly {} duplicates",
         k, max_bins, d, total_overlap
     );
 
@@ -220,6 +262,7 @@ pub fn top_k_bins(
         "The average number of items in bins is {}",
         results.iter().map(|set| set.len()).sum::<usize>() as f64 / results.len() as f64
     );
+
     Ok(results)
 }
 

@@ -67,7 +67,9 @@ fn main() {
     info!("Top K Done");
 
     for i in 1..d {
-        if let Err(e) = bm_calc::top_k_bins(k, &search, &alphabet, i * 10, max_bins, filter_k) {
+        if let Err(e) = bm_calc::top_k_bins(k, &search, &alphabet, i * 10, max_bins, filter_k, true, 0)
+        {
+            error!("Error at {i}: {e}");
             error!("Error at {i}, {filter_k}: {e}");
         }
     }
