@@ -6,6 +6,7 @@ pub(crate) mod bm_calc;
 pub(crate) mod dataloader;
 /// error.rs - this holds a single enum that we can put our errors into.
 pub(crate) mod error;
+mod plotter;
 
 use clap::{arg, command, Parser};
 use tracing::{error, info};
@@ -66,7 +67,7 @@ fn main() {
     info!("Top K Done");
 
     for i in 1..d {
-        if let Err(e) = bm_calc::top_k_bins(k, &search, &alphabet, i, max_bins, filter_k) {
+        if let Err(e) = bm_calc::top_k_bins(k, &search, &alphabet, i * 10, max_bins, filter_k) {
             error!("Error at {i}, {filter_k}: {e}");
         }
     }
