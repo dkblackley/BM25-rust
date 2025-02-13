@@ -6,6 +6,24 @@ use bm25::{DefaultTokenizer, Language, SearchEngine, SearchEngineBuilder, Tokeni
 use indicatif::ProgressBar;
 use tracing::{debug, info, trace};
 
+/// Metadata for easy displaying
+pub struct metadata {
+    /// Value of k used in top-k
+    pub k: usize,
+    /// The number of bins
+    pub num_bins: usize,
+    /// The number of choices for d-choice hashing
+    pub d: usize,
+    /// The numbers of items removed
+    pub removed_items: usize,
+    ///The total number of items
+    pub total_items: usize,
+    ///Average number of items per bin
+    pub average_load_per_bin: usize,
+    ///The number of keywords that actually had an overlap
+    pub keywords_with_overlap: usize,
+}
+
 #[macro_export]
 macro_rules! default_tokenizer {
     () => {
@@ -161,7 +179,7 @@ pub fn top_k_bins(
     filter_k: usize,
     max_load: bool,
     max_load_factor: usize,
-) -> Result<Vec<HashSet<u32>>> {
+) -> Result<(metadata, Vec<HashSet<u32>>)> {
     info!(
         "Starting top {} into {} bins with {} choice hashing",
         k, max_bins, d
@@ -170,6 +188,7 @@ pub fn top_k_bins(
     let mut results = vec![HashSet::new(); max_bins];
     let bar = ProgressBar::new(alphabet.len() as u64);
     let mut total_overlap = 0;
+    let mut keywords_with_overlap: usize = 0;
 
     for word in alphabet {
         let search_results = search_engine.search(word, k);
@@ -186,7 +205,7 @@ pub fn top_k_bins(
             .map(|result| result.document.id)
             .collect();
 
-        let mut best_bin_index ;
+        let mut best_bin_index;
         let mut max_overlap;
         let mut bin_choices = Vec::with_capacity(d);
 
@@ -213,8 +232,7 @@ pub fn top_k_bins(
         best_bin_index = bin_choices.first().unwrap().0;
         max_overlap = bin_choices.first().unwrap().2;
 
-        if !max_load  {
-
+        if !max_load {
             best_bin_index = bin_choices[max_load_factor].0;
             max_overlap = bin_choices[max_load_factor].2;
             // Skip the max_load_factor fullest bins and find max overlap among remaining
@@ -224,21 +242,34 @@ pub fn top_k_bins(
                     best_bin_index = idx;
                 }
             }
-
         }
 
         total_overlap += max_overlap;
+
+        if max_overlap > 0 {
+            keywords_with_overlap += 1;
+        }
 
         results[best_bin_index].extend(document_ids);
 
         bar.inc(1);
     }
 
+    let metadata = metadata {
+        num_bins: max_bins,
+        k,
+        d,
+        removed_items: total_overlap,
+        total_items: results.iter().map(|set| set.len()).sum(),
+        average_load_per_bin: (results.iter().map(|set| set.len()).sum::<usize>() / results.len()),
+        keywords_with_overlap,
+    };
+
     bar.finish();
 
     info!(
-        "top {} into {} bins with {} choice hashing has finished. We saved roughly {} duplicates",
-        k, max_bins, d, total_overlap
+        "top {} into {} bins with {} choice hashing has finished. We saved roughly {} duplicates. There are {} items across all bins",
+        k, max_bins, d, total_overlap,  results.iter().map(|set| set.len()).sum::<usize>()
     );
 
     info!(
@@ -246,7 +277,7 @@ pub fn top_k_bins(
         results.iter().map(|set| set.len()).sum::<usize>() as f64 / results.len() as f64
     );
 
-    Ok(results)
+    Ok((metadata, results))
 }
 
 #[cfg(test)]
