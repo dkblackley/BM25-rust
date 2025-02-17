@@ -248,20 +248,17 @@ pub fn top_k_bins(
 
         // sort bins by size in descending order (fullest first)
         bin_choices.sort_by(|a, b| b.1.cmp(&a.1));
-        best_bin_index = bin_choices.first().unwrap().0;
-        max_overlap = bin_choices.first().unwrap().2;
 
-        if max_load_factor > 0 {
-            best_bin_index = bin_choices[max_load_factor].0;
-            max_overlap = bin_choices[max_load_factor].2;
-            // Skip the max_load_factor fullest bins and find max overlap among remaining
-            for &(idx, _, curr_overlap) in bin_choices.iter().skip(max_load_factor) {
-                if curr_overlap > max_overlap {
-                    max_overlap = curr_overlap;
-                    best_bin_index = idx;
-                }
+        best_bin_index = bin_choices[max_load_factor].0;
+        max_overlap = bin_choices[max_load_factor].2;
+        // Skip the max_load_factor fullest bins and find max overlap among remaining
+        for &(idx, _, curr_overlap) in bin_choices.iter().skip(max_load_factor) {
+            if curr_overlap > max_overlap {
+                max_overlap = curr_overlap;
+                best_bin_index = idx;
             }
         }
+
 
         total_overlap += max_overlap;
 
