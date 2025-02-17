@@ -1,9 +1,10 @@
 use plotters::prelude::*;
 use std::collections::HashSet;
-use std::error::Error;
 use tabled::{Table, Tabled};
 
 #[derive(Tabled)]
+#[allow(clippy::missing_docs_in_private_items)]
+/// Used for displaying a table with table crate
 struct ExperimentResult {
     #[tabled(rename = "Experiment Name")]
     name: String,
@@ -38,7 +39,7 @@ pub fn fullness_histogram(
 ) -> Result<()> {
 
     if sorted {
-        histogram.sort_by(|a, b| b.len().cmp(&a.len()));
+        histogram.sort_by_key(|b| std::cmp::Reverse(b.len()));
     }
 
     let bin_counts: Vec<(usize, usize)> = histogram
@@ -100,13 +101,22 @@ pub fn fullness_histogram(
     Ok(())
 }
 
+
+/// Prints a table out to the terminal, for easier displaying of random metadata
+///
+/// # Arguments
+///
+/// * `experiment_names`: The names for the row fields
+/// * `metadata_vec`: all the metadata, like number of items in bins, num of bins, etc.
+///
+/// returns: Result<(), BM25Error>
 pub fn print_table(
-    experiment_names: &Vec<String>,
-    metadata_vec: &Vec<crate::bm_calc::Metadata>
+    experiment_names: &[String],
+    metadata_vec: &[crate::bm_calc::Metadata]
 ) -> Result<()> {
     let mut results = Vec::new();
 
-    for ((name, meta)) in experiment_names
+    for (name, meta) in experiment_names
         .iter()
         .zip(metadata_vec.iter())
     {

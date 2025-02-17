@@ -15,6 +15,7 @@ struct Data {
 
 /// Metadata for easy displaying
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct Metadata {
     /// Value of k used in top-k
     pub k: usize,
@@ -187,6 +188,7 @@ fn get_hash(s: &str, n: &usize) -> u64 {
 /// Uses d-choice hashing to minimize collisions. For each word,
 /// tries d different hash functions and places results in bin
 /// with maximum overlap.
+#[allow(clippy::too_many_arguments)]
 pub fn top_k_bins(
     k: usize,
     search_engine: &SearchEngine<u32>,
@@ -222,8 +224,8 @@ pub fn top_k_bins(
             .map(|result| result.document.id)
             .collect();
 
-        let mut best_bin_index;
-        let mut max_overlap;
+        let best_bin_index;
+        let max_overlap;
         let mut bin_choices = Vec::with_capacity(d);
 
         // Try d different hash functions
@@ -344,7 +346,7 @@ mod tests {
         );
 
         let search = build_search_engine(corpus);
-        let top_k_bins = top_k_bins(k, &search, &alphabet, d, max_bins, 4, false, 0).unwrap();
+        let top_k_bins = top_k_bins(k, &search, &alphabet, d, max_bins, 4, 0, true).unwrap();
 
         (0..max_bins).for_each(|i| {
             let length = top_k_bins[i].len();

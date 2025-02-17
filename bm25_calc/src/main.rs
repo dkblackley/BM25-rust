@@ -66,7 +66,7 @@ fn main() {
     let top_k_res = bm_calc::top_k(k, &search, &alphabet, filter_k);
     info!("Top K Done");
     plotter::fullness_histogram(
-        top_k_res.values().map(|set| set.clone()).collect(),
+        top_k_res.values().cloned().collect(),
         true,
         &"Top K (No bins)".to_string(),
         top_k_res.values().len() as i32,
@@ -81,7 +81,7 @@ fn main() {
     plotter::fullness_histogram(
         no_choice_bins.1.clone(),
         true,
-        &format!("Top K 1-choice {max_bins}-bins").to_string(),
+        &format!("Top K 1-choice {max_bins}-bins"),
         max_bins as i32,
     )
     .expect("TODO: panic message");
@@ -114,7 +114,7 @@ fn main() {
     plotter::fullness_histogram(
         three_choice_bins_remove_one.1.clone(),
         true,
-        &format!("3-choice, {max_bins}-bins and 1 max-load bin removed").to_string(),
+        &format!("3-choice, {max_bins}-bins and 1 max-load bin removed"),
         max_bins as i32,
     )
     .expect("TODO: panic message");
@@ -125,7 +125,7 @@ fn main() {
     plotter::fullness_histogram(
         two_choice_bins_max_load.1.clone(),
         true,
-        &format!("Top K 2-choice {max_bins}-bins, minimising load").to_string(),
+        &format!("Top K 2-choice {max_bins}-bins, minimising load"),
         max_bins as i32,
     )
     .expect("TODO: panic message");
@@ -136,7 +136,7 @@ fn main() {
     plotter::fullness_histogram(
         hundred_choice_ten_max_load.1.clone(),
         true,
-        &format!("Top K 100-choice {max_bins}-bins, remove 10 max load bins").to_string(),
+        &format!("Top K 100-choice {max_bins}-bins, remove 10 max load bins"),
         max_bins as i32,
     )
     .expect("TODO: panic message");
@@ -164,10 +164,10 @@ fn main() {
         hundred_choice_ten_max_load.0,
     ]);
 
-    print_table(&format_strings, &results);
+    print_table(&format_strings, &results).unwrap();
 }
 
-pub fn calculate_emd(bins1: &Vec<HashSet<u32>>, bins2: &Vec<HashSet<u32>>) -> f64 {
+pub fn calculate_emd(bins1: &[HashSet<u32>], bins2: &[HashSet<u32>]) -> f64 {
     // Get distributions (number of items in each bin)
     let mut dist1: Vec<usize> = bins1.iter().map(|bin| bin.len()).collect();
     let mut dist2: Vec<usize> = bins2.iter().map(|bin| bin.len()).collect();
@@ -207,7 +207,7 @@ pub fn calculate_emd(bins1: &Vec<HashSet<u32>>, bins2: &Vec<HashSet<u32>>) -> f6
 }
 
 // Helper function to print comparison stats
-pub fn print_distribution_comparison(bins1: &Vec<HashSet<u32>>, bins2: &Vec<HashSet<u32>>) {
+pub fn print_distribution_comparison(bins1: &[HashSet<u32>], bins2: &[HashSet<u32>]) {
     let sizes1: Vec<usize> = bins1.iter().map(|bin| bin.len()).collect();
     let sizes2: Vec<usize> = bins2.iter().map(|bin| bin.len()).collect();
 
