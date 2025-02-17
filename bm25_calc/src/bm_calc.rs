@@ -1,13 +1,21 @@
 use std::collections::{HashMap, HashSet};
+use std::fs::File;
 use std::hash::{DefaultHasher, Hash, Hasher};
-
+use std::io::BufWriter;
 use crate::error::Result;
 use bm25::{DefaultTokenizer, Language, SearchEngine, SearchEngineBuilder, Tokenizer};
 use indicatif::ProgressBar;
 use tracing::{debug, info, trace};
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+struct Data {
+    sets: Vec<HashSet<u32>>
+}
 
 /// Metadata for easy displaying
-pub struct metadata {
+#[derive(Clone)]
+pub struct Metadata {
     /// Value of k used in top-k
     pub k: usize,
     /// The number of bins
@@ -34,6 +42,15 @@ macro_rules! default_tokenizer {
             .stemming(true)
             .build()
     };
+}
+
+
+fn save_hashsets(sets: &Vec<HashSet<u32>>, filename: &str) -> Result<()> {
+    let file = File::create(filename)?;
+    let writer = BufWriter::new(file);
+    let data = Data { sets: sets.clone() };
+    serde_json::to_writer(writer, &data)?;
+    Ok(())
 }
 
 /// Gets the "alphabet" or the entire set of possible keywords. Returns a hashset of the keywords
@@ -177,9 +194,9 @@ pub fn top_k_bins(
     d: usize,
     max_bins: usize,
     filter_k: usize,
-    max_load: bool,
     max_load_factor: usize,
-) -> Result<(metadata, Vec<HashSet<u32>>)> {
+    save_result: bool,
+) -> Result<(Metadata, Vec<HashSet<u32>>)> {
     info!(
         "Starting top {} into {} bins with {} choice hashing",
         k, max_bins, d
@@ -232,18 +249,6 @@ pub fn top_k_bins(
         best_bin_index = bin_choices.first().unwrap().0;
         max_overlap = bin_choices.first().unwrap().2;
 
-        if !max_load {
-            best_bin_index = bin_choices[max_load_factor].0;
-            max_overlap = bin_choices[max_load_factor].2;
-            // Skip the max_load_factor fullest bins and find max overlap among remaining
-            for &(idx, _, curr_overlap) in bin_choices.iter().skip(max_load_factor) {
-                if curr_overlap > max_overlap {
-                    max_overlap = curr_overlap;
-                    best_bin_index = idx;
-                }
-            }
-        }
-
         total_overlap += max_overlap;
 
         if max_overlap > 0 {
@@ -255,7 +260,7 @@ pub fn top_k_bins(
         bar.inc(1);
     }
 
-    let metadata = metadata {
+    let metadata = Metadata {
         num_bins: max_bins,
         k,
         d,
@@ -276,6 +281,10 @@ pub fn top_k_bins(
         "The average number of items in bins is {}",
         results.iter().map(|set| set.len()).sum::<usize>() as f64 / results.len() as f64
     );
+
+    if save_result {
+        save_hashsets(&results, &format!("{}_k_choice_with_{}_chocies_{}_max_load_removed", k, d, max_load_factor))?;
+    }
 
     Ok((metadata, results))
 }

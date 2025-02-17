@@ -12,6 +12,7 @@ use std::collections::HashSet;
 
 use clap::{arg, command, Parser};
 use tracing::info;
+use crate::plotter::print_table;
 
 /// Clap structure used to quickly parse cmd args
 #[derive(Parser)]
@@ -75,10 +76,10 @@ fn main() {
     let max_bins = top_k_res.values().len() / 10;
 
     let no_choice_bins =
-        bm_calc::top_k_bins(k, &search, &alphabet, 1, max_bins, filter_k, false, 0)
+        bm_calc::top_k_bins(k, &search, &alphabet, 1, max_bins, filter_k,  0, true)
             .expect("TODO: panic message");
     plotter::fullness_histogram(
-        no_choice_bins.1,
+        no_choice_bins.1.clone(),
         true,
         &format!("Top K 1-choice {max_bins}-bins").to_string(),
         max_bins as i32,
@@ -86,10 +87,10 @@ fn main() {
     .expect("TODO: panic message");
 
     let two_choice_bins =
-        bm_calc::top_k_bins(k, &search, &alphabet, 2, max_bins, filter_k, false, 0)
+        bm_calc::top_k_bins(k, &search, &alphabet, 2, max_bins, filter_k, 0, true)
             .expect("TODO: panic message");
     plotter::fullness_histogram(
-        two_choice_bins.1,
+        two_choice_bins.1.clone(),
         true,
         &format!("Top K 2-choice {max_bins}-bins").to_string(),
         max_bins as i32,
@@ -97,10 +98,10 @@ fn main() {
     .expect("TODO: panic message");
 
     let three_choice_bins =
-        bm_calc::top_k_bins(k, &search, &alphabet, 3, max_bins, filter_k, false, 0)
+        bm_calc::top_k_bins(k, &search, &alphabet, 3, max_bins, filter_k, 0, true)
             .expect("TODO: panic message");
     plotter::fullness_histogram(
-        three_choice_bins.1,
+        three_choice_bins.1.clone(),
         true,
         &format!("Top K 3-choice {max_bins}-bins").to_string(),
         max_bins as i32,
@@ -108,10 +109,10 @@ fn main() {
     .expect("TODO: panic message");
 
     let three_choice_bins_remove_one =
-        bm_calc::top_k_bins(k, &search, &alphabet, 3, max_bins, filter_k, false, 1)
+        bm_calc::top_k_bins(k, &search, &alphabet, 3, max_bins, filter_k,  1, true)
             .expect("TODO: panic message");
     plotter::fullness_histogram(
-        three_choice_bins_remove_one.1,
+        three_choice_bins_remove_one.1.clone(),
         true,
         &format!("3-choice, {max_bins}-bins and 1 max-load bin removed").to_string(),
         max_bins as i32,
@@ -119,10 +120,10 @@ fn main() {
     .expect("TODO: panic message");
 
     let two_choice_bins_max_load =
-        bm_calc::top_k_bins(k, &search, &alphabet, 2, max_bins, filter_k, false, 1)
+        bm_calc::top_k_bins(k, &search, &alphabet, 2, max_bins, filter_k,  1, true)
             .expect("TODO: panic message");
     plotter::fullness_histogram(
-        two_choice_bins_max_load.1,
+        two_choice_bins_max_load.1.clone(),
         true,
         &format!("Top K 2-choice {max_bins}-bins, minimising load").to_string(),
         max_bins as i32,
@@ -130,15 +131,40 @@ fn main() {
     .expect("TODO: panic message");
 
     let hundred_choice_ten_max_load =
-        bm_calc::top_k_bins(k, &search, &alphabet, 100, max_bins, filter_k, false, 10)
+        bm_calc::top_k_bins(k, &search, &alphabet, 100, max_bins, filter_k,  10, true)
             .expect("TODO: panic message");
     plotter::fullness_histogram(
-        hundred_choice_ten_max_load.1,
+        hundred_choice_ten_max_load.1.clone(),
         true,
         &format!("Top K 100-choice {max_bins}-bins, remove 10 max load bins").to_string(),
         max_bins as i32,
     )
     .expect("TODO: panic message");
+
+    let mut format_strings = Vec::new();
+    let mut results = Vec::new();
+
+    // Collect all format strings
+    format_strings.extend_from_slice(&[
+        format!("Top K 1-choice {max_bins}-bins"),
+        format!("Top K 2-choice {max_bins}-bins"),
+        format!("Top K 3-choice {max_bins}-bins"),
+        format!("3-choice, {max_bins}-bins and 1 max-load bin removed"),
+        format!("Top K 2-choice {max_bins}-bins, minimising load"),
+        format!("Top K 100-choice {max_bins}-bins, remove 10 max load bins"),
+    ]);
+
+    // Collect all results
+    results.extend_from_slice(&[
+        no_choice_bins.0,
+        two_choice_bins.0,
+        three_choice_bins.0,
+        three_choice_bins_remove_one.0,
+        two_choice_bins_max_load.0,
+        hundred_choice_ten_max_load.0,
+    ]);
+
+    print_table(&format_strings, &results);
 }
 
 pub fn calculate_emd(bins1: &Vec<HashSet<u32>>, bins2: &Vec<HashSet<u32>>) -> f64 {

@@ -17,8 +17,6 @@ struct ExperimentResult {
     avg_load: usize,
     #[tabled(rename = "Keywords w/Overlap")]
     keywords: usize,
-    #[tabled(rename = "EMD")]
-    emd: f64,
 }
 
 use crate::error::Result;
@@ -38,6 +36,7 @@ pub fn fullness_histogram(
     title: &String,
     granularity: i32,
 ) -> Result<()> {
+
     if sorted {
         histogram.sort_by(|a, b| b.len().cmp(&a.len()));
     }
@@ -103,15 +102,13 @@ pub fn fullness_histogram(
 
 pub fn print_table(
     experiment_names: &Vec<String>,
-    metadata_vec: &Vec<crate::bm_calc::metadata>,
-    emd_vec: &Vec<f64>,
+    metadata_vec: &Vec<crate::bm_calc::Metadata>
 ) -> Result<()> {
     let mut results = Vec::new();
 
-    for ((name, meta), emd) in experiment_names
+    for ((name, meta)) in experiment_names
         .iter()
         .zip(metadata_vec.iter())
-        .zip(emd_vec.iter())
     {
         results.push(ExperimentResult {
             name: name.clone(),
@@ -120,7 +117,6 @@ pub fn print_table(
             total: meta.total_items,
             avg_load: meta.average_load_per_bin,
             keywords: meta.keywords_with_overlap,
-            emd: *emd,
         });
     }
 
