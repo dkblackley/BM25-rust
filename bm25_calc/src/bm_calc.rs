@@ -3,10 +3,11 @@ use std::fs::File;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::BufWriter;
 use crate::error::Result;
-use bm25::{DefaultTokenizer, Language, SearchEngine, SearchEngineBuilder, Tokenizer};
+use bm25::{DefaultTokenizer, Language, SearchEngine, SearchEngineBuilder, SearchResult, Tokenizer};
 use indicatif::ProgressBar;
 use tracing::{debug, info, trace};
 use serde::{Deserialize, Serialize};
+use crate::Config;
 
 #[derive(Serialize, Deserialize)]
 struct Data {
@@ -32,6 +33,7 @@ pub struct Metadata {
     ///The number of keywords that actually had an overlap
     pub keywords_with_overlap: usize,
 }
+
 
 #[macro_export]
 macro_rules! default_tokenizer {
@@ -171,6 +173,71 @@ fn get_hash(s: &str, n: &usize) -> u64 {
     hasher.finish()
 }
 
+fn get_bins(word: &str,
+            d: &usize, max_bins: &u64,
+            document_ids: &HashSet<u32>,
+            orig_results: &Vec<Vec<u32>>,
+            search_results_len: &usize) -> Result<Vec<(usize, usize, usize)>> {
+    let mut bin_choices = Vec::with_capacity(d.clone());
+
+    // Try d different hash functions
+    for choice in 0..d.clone() {
+        let index: usize = (get_hash(word, &choice) % max_bins).try_into()?;
+
+        let mut overlap = orig_results[index].iter()
+            .filter(|&id| document_ids.contains(id))
+            .count();
+
+        // minus the original insertions
+        overlap -= document_ids.len();
+
+        if overlap >= usize::MAX - 111 {
+            panic!("Overlap was negative? {}", overlap)
+        }
+
+        let bin_size = orig_results[index].len();
+
+        trace!(
+                "Got index {}, overlap: {}, k: {}, bin size: {}",
+                index,
+                overlap,
+                search_results_len,
+                bin_size
+            );
+
+        bin_choices.push((index, bin_size, overlap));
+    }
+
+    Ok(bin_choices)
+
+}
+
+fn remove_min_overlap(mut bins: Vec<(usize, usize, usize)>, count: usize) -> Vec<(usize, usize, usize)> {
+    // Sort bins by overlap in ascending order (smallest overlap first)
+    bins.sort_by(|a, b| a.2.cmp(&b.2));
+
+    // Determine the number of bins to remove
+    let remove_count = count.min(bins.len()); // Prevent out-of-bounds
+
+    // Remove the first `remove_count` elements
+    bins.drain(0..remove_count);
+
+    bins
+}
+
+fn remove_max_load(mut bins: Vec<(usize, usize, usize)>, count: usize) -> Vec<(usize, usize, usize)> {
+    // Sort bins by overlap in descending order (largest overlap first)
+    bins.sort_by(|a, b| b.2.cmp(&a.2));
+
+    // Determine the number of bins to remove
+    let remove_count = count.min(bins.len()); // Prevent out-of-bounds
+
+    // Remove the first `remove_count` elements
+    bins.drain(0..remove_count);
+
+    bins
+}
+
 /// Performs top-k search with d-choice hashing into multiple bins. Function is deterministic and should reveal the same results over each run.
 ///
 /// # Arguments
@@ -190,33 +257,36 @@ fn get_hash(s: &str, n: &usize) -> u64 {
 /// with maximum overlap.
 #[allow(clippy::too_many_arguments)]
 pub fn top_k_bins(
-    k: usize,
     search_engine: &SearchEngine<u32>,
     alphabet: &HashSet<String>,
-    d: usize,
-    max_bins: usize,
-    filter_k: usize,
-    max_load_factor: usize,
-    save_result: bool,
+    config: Config
 ) -> Result<(Metadata, Vec<HashSet<u32>>)> {
+
+    // Get configurable elements
+
+    let k = config.k;
+    let d = config.d;
+    let max_bins = config.max_bins;
+    let filter_k = config.filter_k;
+    let max_load_factor = config.max_load_factor;
+    let save_result = config.save_result;
+    let min_overlap_factor = config.min_overlap_factor;
+
     info!(
         "Starting top {} into {} bins with {} choice hashing",
         k, max_bins, d
     );
 
     let mut results = vec![HashSet::new(); max_bins];
+    let mut orig_results  = vec![Vec::new(); max_bins];
     let bar = ProgressBar::new(alphabet.len() as u64);
     let mut total_overlap = 0;
     let mut keywords_with_overlap: usize = 0;
 
+    let mut archived_results: Vec<(String, Vec<SearchResult<u32>>)> = Vec::new();
+
     for word in alphabet {
         let search_results = search_engine.search(word, k);
-
-        // Skip words with too few results
-        if search_results.len() < filter_k {
-            bar.inc(1);
-            continue;
-        }
 
         // Convert search results to document IDs
         let document_ids: HashSet<u32> = search_results
@@ -224,41 +294,45 @@ pub fn top_k_bins(
             .map(|result| result.document.id)
             .collect();
 
-        let mut best_bin_index;
-        let mut max_overlap;
-        let mut bin_choices = Vec::with_capacity(d);
-
-        // Try d different hash functions
+        // Skip words with too few results
+        if search_results.len() < filter_k {
+            bar.inc(1);
+            continue;
+        }
         for choice in 0..d {
             let index: usize = (get_hash(word, &choice) % (max_bins as u64)).try_into()?;
-
-            let overlap = results[index].intersection(&document_ids).count();
-            let bin_size = results[index].len();
-
-            trace!(
-                "Got index {}, overlap: {}, k: {}, bin size: {}",
-                index,
-                overlap,
-                search_results.len(),
-                bin_size
-            );
-
-            bin_choices.push((index, bin_size, overlap));
+            orig_results[index].extend(document_ids.clone());
         }
+        bar.inc(1);
+        archived_results.push((word.clone(), search_results));
 
-        // sort bins by size in descending order (fullest first)
-        bin_choices.sort_by(|a, b| b.1.cmp(&a.1));
+    }
+    bar.finish();
 
-        best_bin_index = bin_choices[max_load_factor].0;
-        max_overlap = bin_choices[max_load_factor].2;
-        // Skip the max_load_factor fullest bins and find max overlap among remaining
-        for &(idx, _, curr_overlap) in bin_choices.iter().skip(max_load_factor) {
-            if curr_overlap > max_overlap {
-                max_overlap = curr_overlap;
-                best_bin_index = idx;
+    for (word, search_results) in archived_results {
+
+        // Convert search results to document IDs
+        let document_ids: HashSet<u32> = search_results
+            .iter()
+            .map(|result| result.document.id)
+            .collect();
+
+        let mut bin_choices = get_bins(&word, &d, &(max_bins as u64), &document_ids, &orig_results, &search_results.len())?;
+
+
+        bin_choices = remove_min_overlap(bin_choices, min_overlap_factor);
+        bin_choices = remove_max_load(bin_choices, max_load_factor);
+
+        let mut max_overlap = 0;
+
+        for choice in bin_choices {
+
+            if max_overlap < choice.2 {
+                max_overlap = choice.2;
             }
-        }
 
+            results[choice.0].extend(document_ids.clone());
+        }
 
         total_overlap += max_overlap;
 
@@ -266,9 +340,6 @@ pub fn top_k_bins(
             keywords_with_overlap += 1;
         }
 
-        results[best_bin_index].extend(document_ids);
-
-        bar.inc(1);
     }
 
     let metadata = Metadata {
@@ -281,7 +352,7 @@ pub fn top_k_bins(
         keywords_with_overlap,
     };
 
-    bar.finish();
+
 
     info!(
         "top {} into {} bins with {} choice hashing has finished. We saved roughly {} duplicates. There are {} items across all bins",
@@ -355,7 +426,13 @@ mod tests {
         );
 
         let search = build_search_engine(corpus);
-        let top_k_bins = top_k_bins(k, &search, &alphabet, d, max_bins, 4, 0, true).unwrap();
+        let mut config = Config::default();
+        config.k = k;
+        config.d = d;
+        config.max_bins = max_bins;
+        config.min_overlap_factor = 9;
+
+        let top_k_bins = top_k_bins(&search, &alphabet, config).unwrap();
 
         (0..max_bins).for_each(|i| {
             let length = top_k_bins[i].len();
