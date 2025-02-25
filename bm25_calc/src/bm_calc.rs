@@ -8,6 +8,7 @@ use indicatif::ProgressBar;
 use tracing::{debug, info, trace, warn};
 use serde::{Deserialize, Serialize};
 use crate::Config;
+use sha2::{Sha256, Digest};
 
 #[derive(Serialize, Deserialize)]
 struct Data {
@@ -166,11 +167,16 @@ pub fn top_k(
 /// # Returns
 /// * `u64` - Combined hash value
 fn get_hash(s: &str, n: &usize) -> u64 {
-    let mut hasher = DefaultHasher::new();
+    let mut hasher = Sha256::new();
     trace!("about to hash {} and {}", s, n);
-    s.hash(&mut hasher);
-    n.hash(&mut hasher);
-    hasher.finish()
+    hasher.update(s.as_bytes());
+    hasher.update(n.to_string().as_bytes());
+    let result = hasher.finalize();
+
+    // Convert first 8 bytes of SHA-256 hash to u64
+    let mut bytes = [0u8; 8];
+    bytes.copy_from_slice(&result[0..8]);
+    u64::from_be_bytes(bytes)
 }
 
 fn get_bins(word: &str,
