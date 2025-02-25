@@ -68,7 +68,7 @@ pub fn fullness_histogram(
     let y_max = (*max_count as f64 * 1.1) as usize;
     let num_bins = consolidated_bins.len();
 
-    let output = String::from(title) + "_histogram.png";
+    let output = "figures/".to_owned() + &*String::from(title) + "_histogram.png";
     let root = BitMapBackend::new(&output, (800, 600)).into_drawing_area();
     root.fill(&WHITE).unwrap();
 

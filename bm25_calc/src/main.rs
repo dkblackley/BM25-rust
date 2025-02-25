@@ -12,6 +12,7 @@ use std::collections::HashSet;
 
 use clap::{arg, command, Parser};
 use tracing::info;
+use crate::bm_calc::Metadata;
 use crate::plotter::print_table;
 
 /// Clap structure used to quickly parse cmd args
@@ -183,19 +184,19 @@ fn main() {
     )
     .expect("TODO: panic message");
 
-    config.d = 100;
-    config.max_load_factor = 10;
-    config.min_overlap_factor = 89;
-    let hundred_choice_ten_max_load =
-        bm_calc::top_k_bins(&search, &alphabet, config)
-            .expect("TODO: panic message");
-    plotter::fullness_histogram(
-        hundred_choice_ten_max_load.1.clone(),
-        true,
-        &format!("Top K 100-choice {max_bins}-bins, remove 10 max load bins"),
-        max_bins as i32,
-    )
-    .expect("TODO: panic message");
+    // config.d = 100;
+    // config.max_load_factor = 10;
+    // config.min_overlap_factor = 89;
+    // let hundred_choice_ten_max_load =
+    //     bm_calc::top_k_bins(&search, &alphabet, config)
+    //         .expect("TODO: panic message");
+    // plotter::fullness_histogram(
+    //     hundred_choice_ten_max_load.1.clone(),
+    //     true,
+    //     &format!("Top K 100-choice {max_bins}-bins, remove 10 max load bins"),
+    //     max_bins as i32,
+    // )
+    // .expect("TODO: panic message");
 
     config.d = 4;
     config.min_overlap_factor = 1;
@@ -208,7 +209,7 @@ fn main() {
     plotter::fullness_histogram(
         four_choice_min_overlap_max_overlap.1.clone(),
         true,
-        &format!("Top K 100-choice {max_bins}-bins, remove 10 max load bins"),
+        &format!("4-choice {max_bins}-bins, remove 1 min overlap, 1 max load"),
         max_bins as i32,
     )
         .expect("TODO: panic message");
@@ -218,23 +219,36 @@ fn main() {
 
     // Collect all format strings
     format_strings.extend_from_slice(&[
+        format!("Naive 1-1 mapping with {}-bins", top_k_res.values().len()),
         format!("1-choice {max_bins}-bins"),
         format!("2-choice {max_bins}-bins"),
         format!("3-choice {max_bins}-bins"),
         format!("3-choice, {max_bins}-bins and 1 max-load bin removed"),
         format!("2-choice {max_bins}-bins, minimising load"),
-        format!("100-choice {max_bins}-bins, remove 10 max load bins"),
+        //format!("100-choice {max_bins}-bins, remove 10 max load bins"),
         format!("4-choice {max_bins}-bins, remove 1 min overlap, 1 max load"),
     ]);
 
+    let top_k_meta =  Metadata {
+        num_bins: top_k_res.keys().len(),
+        k,
+        d: 1,
+        removed_items: 0,
+        total_items: top_k_res.values().map(|set| set.len()).sum(),
+        average_load_per_bin: (top_k_res.values().map(|set| set.len()).sum::<usize>() / top_k_res.values().len()),
+        keywords_with_overlap: 0,
+    };
+
+
     // Collect all results
     results.extend_from_slice(&[
+        top_k_meta,
         no_choice_bins.0,
         two_choice_bins.0,
         three_choice_bins.0,
         three_choice_bins_remove_one.0,
         two_choice_bins_max_load.0,
-        hundred_choice_ten_max_load.0,
+        //hundred_choice_ten_max_load.0,
         four_choice_min_overlap_max_overlap.0,
     ]);
 

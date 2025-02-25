@@ -5,7 +5,7 @@ use std::io::BufWriter;
 use crate::error::Result;
 use bm25::{DefaultTokenizer, Language, SearchEngine, SearchEngineBuilder, SearchResult, Tokenizer};
 use indicatif::ProgressBar;
-use tracing::{debug, info, trace};
+use tracing::{debug, info, trace, warn};
 use serde::{Deserialize, Serialize};
 use crate::Config;
 
@@ -219,6 +219,7 @@ fn remove_min_overlap(mut bins: Vec<(usize, usize, usize)>, count: usize) -> Vec
     // Determine the number of bins to remove
     let remove_count = count.min(bins.len()); // Prevent out-of-bounds
 
+
     // Remove the first `remove_count` elements
     bins.drain(0..remove_count);
 
@@ -273,8 +274,8 @@ pub fn top_k_bins(
     let min_overlap_factor = config.min_overlap_factor;
 
     info!(
-        "Starting top {} into {} bins with {} choice hashing",
-        k, max_bins, d
+        "Starting top {} into {} bins with {} choice hashing. We will remove {} min overlap and {} max laod bins",
+        k, max_bins, d, min_overlap_factor, max_load_factor
     );
 
     let mut results = vec![HashSet::new(); max_bins];
@@ -309,6 +310,8 @@ pub fn top_k_bins(
     }
     bar.finish();
 
+    let bar2 = ProgressBar::new(alphabet.len() as u64);
+
     for (word, search_results) in archived_results {
 
         // Convert search results to document IDs
@@ -339,8 +342,11 @@ pub fn top_k_bins(
         if max_overlap > 0 {
             keywords_with_overlap += 1;
         }
+        bar2.inc(1);
 
     }
+
+    bar2.finish();
 
     let metadata = Metadata {
         num_bins: max_bins,
@@ -365,7 +371,7 @@ pub fn top_k_bins(
     );
 
     if save_result {
-        save_hashsets(&results, &format!("{}_k_choice_with_{}_chocies_{}_max_load_removed", k, d, max_load_factor))?;
+        save_hashsets(&results, &format!("saved/{}_k_choice_with_{}_chocies_{}_max_load_removed.data", k, d, max_load_factor))?;
     }
 
     Ok((metadata, results))
